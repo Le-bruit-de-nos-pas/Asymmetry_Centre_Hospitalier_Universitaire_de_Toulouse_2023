@@ -1,6 +1,7 @@
 library(readxl)
 library(tidyverse)
 library(data.table)
+library(missMDA)
 
 # Import files ---------------------------------------------------------------------
 
@@ -1124,6 +1125,12 @@ mean(UPDRSI_II$`Pre_OP_[ON]`) #6.513844
 mean(UPDRSI_II$`Post_OP_[OFF]`) #15.9354
 mean(UPDRSI_II$`Post_OP_[ON]`) #7.456636
 
+
+sd(UPDRSI_II$`Pre_OP_[OFF]`) #7.772574
+sd(UPDRSI_II$`Pre_OP_[ON]`) #6.025992
+sd(UPDRSI_II$`Post_OP_[OFF]`) #7.551897
+sd(UPDRSI_II$`Post_OP_[ON]`) #5.324236
+
 UPDRSI_II %>% gather(item, value, `Pre_OP_[OFF]`:`Post_OP_[ON]`) %>%
    mutate(item=factor(item, levels=c("Pre_OP_[OFF]" , "Pre_OP_[ON]", 
                                                 "Post_OP_[OFF]", "Post_OP_[ON]"))) %>%
@@ -1289,6 +1296,11 @@ PDQ39 %>% group_by(VISIT) %>% summarise(n=mean(as.numeric(value)))
 
 # 1 Post_OP  44.4
 # 2 Pre_OP   51.9
+
+PDQ39 %>% group_by(VISIT) %>% summarise(n=sd(as.numeric(value)))
+ 
+# 1 Post_OP  21.9
+# 2 Pre_OP   19.8
 
 temp <- PDQ39 %>% filter(VISIT=="Pre_OP") %>% arrange(SUBJID) %>% rename("PDQ39_Pre"="value") %>% select(-VISIT) %>%
   left_join(PDQ39 %>% filter(VISIT=="Post_OP") %>% arrange(SUBJID) %>% rename("PDQ39_Post"="value") %>% select(-VISIT))
@@ -2702,7 +2714,7 @@ CONSO_SPE_v2 <- CONSO_SPE %>% select(1,2,3,4) %>% rename("DRUG"=3, "DOSE"=4) %>%
 
 CONSO_SPE_v2 <- CONSO_SPE_v2 %>% drop_na()
 CONSO_SPE_v2 <- CONSO_SPE_v2 %>% arrange(SUBJID, VISIT_NOM, DRUG, DOSE)
-
+CONSO_SPE_v2 <- CONSO_SPE_v2 %>% filter(VISIT_NOM=="Screening"|VISIT_NOM=="V1")
 fwrite(CONSO_SPE_v2, "Processed_data/CONSO_SPE_Simplified_V2.csv", sep=",")
 
 # ----------------------------------------------------
@@ -2749,11 +2761,15 @@ FREQUENCE_V1$Diff_Freq <- abs(FREQUENCE_V1$FREQUENCED1 -FREQUENCE_V1$FREQUENCEG1
 
 mean(FREQUENCE_V1$AMPLITUDEG1) # 2.427941
 mean(FREQUENCE_V1$AMPLITUDED1) # 2.464706
+sd(FREQUENCE_V1$AMPLITUDEG1) # 0.812694
+sd(FREQUENCE_V1$AMPLITUDED1) # 0.8948564
 mean(FREQUENCE_V1$Diff_Amp)
 max(FREQUENCE_V1$Diff_Amp)
 
 mean(FREQUENCE_V1$FREQUENCEG1) # 130.6127
 mean(FREQUENCE_V1$FREQUENCED1) # 130.6765
+sd(FREQUENCE_V1$FREQUENCEG1) # 26.4035
+sd(FREQUENCE_V1$FREQUENCED1) # 26.3445
 mean(FREQUENCE_V1$Diff_Freq)
 max(FREQUENCE_V1$Diff_Freq)
 
@@ -2801,3 +2817,239 @@ cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF , Asymmetry_Pre_vs_Post$Diff_
 
 
 # ---------------------------------------
+# Cohort Clinical and Demographic characteristics -----------------------
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF) ; sd(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF) 
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF) ; sd(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF) 
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON ) ; sd(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON ) 
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON ) ; sd(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON ) 
+
+SUBJID <- Asymmetry_Pre_vs_Post %>% select(SUBJID) # 537
+
+sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
+
+sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
+
+#  [1] "DEMOGRAPHIE "             "FACTEURSDERISQUE "        "ATCD_MED_CHIR"           
+#  [4] "SOCIAL "                  "PDQ39-CGIS-SCOPA"         "PGI"                     
+#  [7] "UPDRS II"                 "UPDRSIII_TOTAUX"          "UPDRSIII_COMPLET_V0_V1"  
+# [10] "UPDRSI_II_IV"             "Hoehn&Yarh-S&E"           "EVA_FNM_V0_V1"           
+# [13] "HAM-D"                    "HAM-A"                    "TCI_TCSP_V0"             
+# [16] "Hallu_Miami"              "MoCA V0"                  "MoCA V1"                 
+# [19] "Clox"                     "Boston_Fluence"           "PEROP_COMPLPEROP"        
+# [22] "FREQUENCE_V0"             "FREQUENCE_V1"             "EVENEMENTSINDESIRABLES"  
+# [25] "CONSO_SPE"                "PSYCHOTROPES"             "AUTRE_PARKINSON"         
+# [28] "MEDICAMENTS dans Rapport" "DATES_DE_VISITES "
+
+
+# DEMOGRAPHICS
+
+DEMOGRAPHIE <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DEMOGRAPHIE ", skip=0, col_types = "text", trim_ws = TRUE)
+DEMOGRAPHIE <- SUBJID %>% inner_join(DEMOGRAPHIE)
+
+DEMOGRAPHIE <- DEMOGRAPHIE %>% mutate(D_SCREEN=as.numeric(str_sub(D_SCREEN, 7L, 10L)))
+
+mean(as.numeric(DEMOGRAPHIE$AGE)) ;  sd(as.numeric(DEMOGRAPHIE$AGE))  # 59.38175 +- 7.730867
+DEMOGRAPHIE %>% group_by(SEXE) %>% count() # Femme 189 Homme 348
+DEMOGRAPHIE %>% group_by(ETHNIE) %>% count() # 94% Caucasien européen, 4% Afrique, 2% autre
+
+mean(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_1ER_SYMPT), na.rm=T) ;  sd(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_1ER_SYMPT), na.rm=T)  # 11.25 +- 4.25902
+
+mean(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_DIAG), na.rm=T) ;  sd(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_DIAG), na.rm=T)  # 9.908752 +- 3.915747
+
+mean(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_LDOPA), na.rm=T) ;  sd(DEMOGRAPHIE$D_SCREEN - as.numeric(DEMOGRAPHIE$D_LDOPA), na.rm=T)  # 8.002033 +- 3.925217
+ 
+
+DEMOGRAPHIE %>% select(SUBJID, D_SCREEN, D_TTT_DOPAM) %>% filter(D_TTT_DOPAM!="003") %>% mutate(D_TTT_DOPAM=as.numeric(D_TTT_DOPAM)) %>%
+  drop_na() %>% summarise(mean=mean(D_SCREEN-D_TTT_DOPAM), SD=sd(D_SCREEN-D_TTT_DOPAM))
+
+#       mean       SD
+# 1 9.154472 3.944178
+
+
+DEMOGRAPHIE %>% select(SUBJID, D_SCREEN, D_FLUCTU_MOTR) %>% filter(D_FLUCTU_MOTR>="19") %>% mutate(D_FLUCTU_MOTR=as.numeric(D_FLUCTU_MOTR)) %>%
+  drop_na() %>% summarise(mean=mean(D_SCREEN-D_FLUCTU_MOTR), SD=sd(D_SCREEN-D_FLUCTU_MOTR))
+
+#     mean       SD
+# 1 3.95825 2.826357
+
+DEMOGRAPHIE %>% select(SUBJID, D_SCREEN, D_FLUCTU_NONMOTR) %>% filter(D_FLUCTU_NONMOTR!="0"&D_FLUCTU_NONMOTR!="0000") %>% mutate(D_FLUCTU_NONMOTR=as.numeric(D_FLUCTU_NONMOTR)) %>%
+  drop_na() %>% summarise(mean=mean(D_SCREEN-D_FLUCTU_NONMOTR), SD=sd(D_SCREEN-D_FLUCTU_NONMOTR))
+
+#      mean      SD
+# 1 3.598101 2.83401
+
+DEMOGRAPHIE %>% select(SUBJID, D_SCREEN, D_DYSKINESIE) %>% filter(D_DYSKINESIE!="0") %>% mutate(D_DYSKINESIE=as.numeric(D_DYSKINESIE)) %>%
+  drop_na() %>% summarise(mean=mean(D_SCREEN-D_DYSKINESIE), SD=sd(D_SCREEN-D_DYSKINESIE))
+
+#       mean       SD
+# 1 3.183486 2.579014
+
+
+# Age at DBS
+
+DATES_DE_VISITES  <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DATES_DE_VISITES ", skip=0, col_types = "text", trim_ws = TRUE)
+DATES_DE_VISITES <- DATES_DE_VISITES %>% select(SUBJID, D_CHIR)
+
+DATES_DE_VISITES %>% inner_join(DEMOGRAPHIE %>% select(SUBJID, DDN)) %>% 
+  mutate(D_CHIR=as.numeric(str_sub(D_CHIR, 7L, 10L))) %>%
+    mutate(DDN=as.numeric(str_sub(DDN, 4L, 7))) %>% 
+  summarise(mean=mean(D_CHIR-DDN, na.rm=T), sd=sd(D_CHIR-DDN, na.rm=T))
+
+
+
+# PDQ39 
+
+# PDQ29 baseline -> Pre_OP   51.9 
+
+# UPDRS III Total
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
+names(UPDRSIII_TOTAUX)
+
+mean(as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T) ;  sd(as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T)  # 41.80151 +- 15.04414
+mean(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0), na.rm=T) ;  sd(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0), na.rm=T)  # 10.58647 +- 7.263279
+
+mean((as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0) - as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0))/as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T) #0.7495791
+sd((as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0) - as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0))/as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T) # 0.1383955
+
+
+
+mean(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_WORSTOFF_V1), na.rm=T) ;  sd(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_WORSTOFF_V1), na.rm=T)  # 44.22394 +- 15.89983
+mean(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V1), na.rm=T) ;  sd(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V1), na.rm=T)  # 10.77756 +- 7.744893
+
+mean(as.numeric(UPDRSIII_TOTAUX$EV_MOT_DOP_SENSI1_V1), na.rm=T) ;  sd(as.numeric(UPDRSIII_TOTAUX$EV_MOT_DOP_SENSI1_V1), na.rm=T)  # 75.39705 +- 15.25748
+
+
+# PIGD TD
+
+#   Pheno     n
+#   <chr> <int>
+# 1 Indet    21
+# 2 PIGD    262
+# 3 TD       69
+# > 69/(21+262+69)
+# [1] 0.1960227
+# > 262/(21+262+69)
+# [1] 0.7443182
+# > 21/(21+262+69)
+# [1] 0.05965909
+
+# UPDRS II
+
+mean(UPDRSI_II$`Pre_OP_[OFF]`) #19.40816
+mean(UPDRSI_II$`Pre_OP_[ON]`) #6.513844
+mean(UPDRSI_II$`Post_OP_[OFF]`) #15.9354
+mean(UPDRSI_II$`Post_OP_[ON]`) #7.456636
+
+
+# S&E
+
+Hoehn_YarhS_E <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+Hoehn_YarhS_E <- SUBJID %>% inner_join(Hoehn_YarhS_E)
+names(Hoehn_YarhS_E)
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_OFF) %>% spread(key=VISIT, value=SCHWAB_OFF) %>% 
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>%
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_OFF) %>% spread(key=VISIT, value=HOEHN_YAHR_OFF) %>% 
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
+    mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, ",", ".")) %>%
+    mutate(`Visite de screening` = str_replace(`Visite de screening`, "Stade ", "")) %>%
+    mutate(`Visite de screening` = str_replace(`Visite de screening`, ",", ".")) %>%
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>%
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+  
+  
+# MoCA
+
+MoCA_V0 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V0", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V0 <- SUBJID %>% inner_join(MoCA_V0) %>% select(SUBJID, MOCA_SCORE)
+mean(as.numeric(MoCA_V0$MOCA_SCORE), na.rm=T)
+sd(as.numeric(MoCA_V0$MOCA_SCORE), na.rm=T)
+
+
+MoCA_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V1", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V1 <- SUBJID %>% inner_join(MoCA_V1) %>% select(SUBJID, MOCA_SCORE)
+mean(as.numeric(MoCA_V1$MOCA_SCORE), na.rm=T)
+sd(as.numeric(MoCA_V1$MOCA_SCORE), na.rm=T)
+
+
+# ---------------------
+# UPDRS III OFF pre-op vs post-op OFF-ON ----------------------------------------------------
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+SUBJID <- Asymmetry_Pre_vs_Post %>% select(SUBJID) # 537
+
+sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
+
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
+names(UPDRSIII_TOTAUX)
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, TOT_OFF_DRUG_V0, OFFON_TOTALCALC_V1) %>% 
+  mutate(TOT_OFF_DRUG_V0=as.numeric(TOT_OFF_DRUG_V0), OFFON_TOTALCALC_V1=as.numeric(OFFON_TOTALCALC_V1)) %>% drop_na()
+
+
+
+UPDRSIII_TOTAUX <- data.frame(UPDRSIII_TOTAUX %>% gather(eval, score, TOT_OFF_DRUG_V0:OFFON_TOTALCALC_V1))
+
+UPDRSIII_TOTAUX %>% group_by(eval) %>% summarise(mean=mean(score), sd=sd(score))
+
+#  eval                mean    sd
+# 1 OFFON_TOTALCALC_V1  19    11.7
+# 2 TOT_OFF_DRUG_V0     41.8  15.2
+
+pairwise.wilcox.test(UPDRSIII_TOTAUX$score, UPDRSIII_TOTAUX$eval, p.adj = "bonferroni", paired=T)
+
+
+# 	Pairwise comparisons using Wilcoxon signed rank test with continuity correction 
+# data:  UPDRSIII_TOTAUX$score and UPDRSIII_TOTAUX$eval 
+#                 OFFON_TOTALCALC_V1
+# TOT_OFF_DRUG_V0 <2e-16            
+# P value adjustment method: bonferroni 
+
+# ------------------------
+
+# Post OP ON-ON: UPDRS III in symmetric vs symmetric ------------------------------
+
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+SUBJID <- Asymmetry_Pre_vs_Post %>% select(SUBJID) # 537
+
+temp <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Post_OP_ONON) %>%
+  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
+
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, ON_TOTALCALC_V1) %>% 
+  mutate(ON_TOTALCALC_V1=as.numeric(ON_TOTALCALC_V1)) %>% drop_na()
+
+temp <- temp %>% left_join(UPDRSIII_TOTAUX)
+
+temp %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(ON_TOTALCALC_V1, na.rm=T), sd=sd(ON_TOTALCALC_V1, na.rm=T))
+
+#   Diff_Post_OP_ONON  mean    sd
+# 1 >5                 15.5  6.44
+# 2 no                 10.1  7.69
+
+
+wilcox.test(temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON ==">5"], temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON !=">5"])
+
+# 	Wilcoxon rank sum test with continuity correction
+# data:  temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON == ">5"] and temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON != ">5"]
+# W = 21924, p-value = 1.261e-10
+# alternative hypothesis: true location shift is not equal to 0
+
+# ------------------------------
