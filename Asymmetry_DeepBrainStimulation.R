@@ -3,6 +3,8 @@ library(tidyverse)
 library(data.table)
 library(missMDA)
 
+
+
 # Import files ---------------------------------------------------------------------
 
 sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
@@ -1807,6 +1809,35 @@ UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimul
 df_names <- names(UPDRSIII_COMPLET_V0_V1)
 
 
+OFF_before <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+    filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%
+  arrange(df_names) %>%
+  filter(!grepl("ON", df_names)) %>%   filter(!grepl("1$", df_names))
+
+toString(as.list(OFF_before))
+
+match <- c("OFF_3.9_", "OFF_3.10_", "OFF_3.11_", "OFF_3.12_")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before <- OFF_before[-1,]
+
+
+OFF_before <- OFF_before %>% mutate(OFF_3.9_  =as.numeric(OFF_3.9_  ),
+                                    OFF_3.10_  =as.numeric(OFF_3.10_  ),
+                                    OFF_3.11_  =as.numeric(OFF_3.11_  ),
+                                    OFF_3.12_=as.numeric(OFF_3.12_)
+                                    ) %>% drop_na()
+
+
+
 ONON_After <- data.frame(df_names) %>%
   filter(row_number()>272) %>%
   filter(grepl("^ON", df_names)) %>%
@@ -1929,7 +1960,7 @@ OFFON_After <- OFFON_After %>% mutate(OFFON_3.10_  =as.numeric(OFFON_3.10_  ),
 
 
 
-
+OFF_before$AxialScoreOFFbefore <- OFF_before$OFF_3.9_ + OFF_before$OFF_3.10_ + OFF_before$OFF_3.11_ + OFF_before$OFF_3.12_
 ONON_After$AxialScoreON <- ONON_After$ON_3.9_6 + ONON_After$ON_3.10_6 + ONON_After$ON_3.11_6 + ONON_After$ON_3.12_6
 OFFOFF_After$AxialScoreOFF <- OFFOFF_After$OFF_3.9_1 + OFFOFF_After$OFF_3.10_1 + OFFOFF_After$OFF_3.11_1 + OFFOFF_After$OFF_3.12_1 
 ONOFF_After$AxialScoreONOFF <- ONOFF_After$ONOFF_3.9_  + ONOFF_After$ONOFF_3.10_  + ONOFF_After$ONOFF_3.11_  + ONOFF_After$ONOFF_3.12_ 
@@ -1939,18 +1970,23 @@ OFFON_After$AxialScoreOFFON <- OFFON_After$OFFON_3.9_  + OFFON_After$OFFON_3.10_
 Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
 
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% 
+  inner_join(OFF_before %>% select(SUBJID, AxialScoreOFFbefore)) %>%
   inner_join(OFFOFF_After %>% select(SUBJID, AxialScoreOFF)) %>%
     inner_join(ONON_After %>% select(SUBJID, AxialScoreON)) %>%
       inner_join(ONOFF_After %>% select(SUBJID, AxialScoreONOFF)) %>%
     inner_join(OFFON_After %>% select(SUBJID, AxialScoreOFFON))
 
-
+cor.test(Asymmetry_Pre_vs_Post$Diff_Pre_OP, Asymmetry_Pre_vs_Post$AxialScoreOFFbefore)
 cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON, Asymmetry_Pre_vs_Post$AxialScoreON)
 cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF, Asymmetry_Pre_vs_Post$AxialScoreOFF)
 cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON, Asymmetry_Pre_vs_Post$AxialScoreOFFON)
 cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF, Asymmetry_Pre_vs_Post$AxialScoreONOFF)
 
 
+Asymmetry_Pre_vs_Post %>%
+  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "<5")) %>%
+  group_by(Diff_Pre_OP) %>%
+  summarise(n=mean(AxialScoreOFFbefore))
 
 Asymmetry_Pre_vs_Post %>%
   mutate(Diff_Post_OP_OFFOFF=ifelse(Diff_Post_OP_OFFOFF>=5, ">5", "<5")) %>%
@@ -1973,6 +2009,43 @@ Asymmetry_Pre_vs_Post %>%
   mutate(Diff_Post_OP_OFFON=ifelse(Diff_Post_OP_OFFON>=5, ">5", "<5")) %>%
   group_by(Diff_Post_OP_OFFON) %>%
   summarise(n=mean(AxialScoreOFFON))
+
+
+
+
+Asymmetry_Pre_vs_Post %>%
+  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "<5")) %>% 
+  rename("Asymmetric Pre-OP [OFF/OFF]"="Diff_Pre_OP") %>%
+    mutate(`Asymmetric Post-OP [OFF/OFF]`=ifelse(`Asymmetric Pre-OP [OFF/OFF]`=="<5", "<5", "≥5")) %>% 
+    rename("Axial Score Pre-OP [OFF/OFF]"="AxialScoreOFFbefore") %>%
+  ggplot(aes(`Asymmetric Post-OP [OFF/OFF]`  , `Axial Score Pre-OP [OFF/OFF]`, 
+             colour=`Asymmetric Pre-OP [OFF/OFF]`, fill=`Asymmetric Pre-OP [OFF/OFF]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.4, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Pre-OP [OFF/OFF]") + ylab("Axial Score Pre-OP [OFF/OFF] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0081A7")) +
+  scale_colour_manual(values=c("#B5838D", "#0081A7")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+Asymmetry_Pre_vs_Post %>%
+  mutate(Diff_Post_OP_OFFOFF=ifelse(Diff_Post_OP_OFFOFF>=5, ">5", "<5")) %>% 
+  rename("Asymmetric Post-OP [OFF/OFF]"="Diff_Post_OP_OFFOFF") %>%
+    mutate(`Asymmetric Post-OP [OFF/OFF]`=ifelse(`Asymmetric Post-OP [OFF/OFF]`=="<5", "<5", "≥5")) %>% 
+    rename("Axial Score Post-OP [OFF/OFF]"="AxialScoreOFF") %>%
+  ggplot(aes(`Asymmetric Post-OP [OFF/OFF]`  , `Axial Score Post-OP [OFF/OFF]`, 
+             colour=`Asymmetric Post-OP [OFF/OFF]`, fill=`Asymmetric Post-OP [OFF/OFF]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.4, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Post-OP [OFF/OFF]") + ylab("Axial Score Post-OP [OFF/OFF] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0081A7")) +
+  scale_colour_manual(values=c("#B5838D", "#0081A7")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 
 
@@ -2029,11 +2102,24 @@ Asymmetry_Pre_vs_Post %>%
 
 
 
-
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "<5"))
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5, ">5", "<5"))
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_OFFOFF=ifelse(Diff_Post_OP_OFFOFF>=5, ">5", "<5"))
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_OFFON=ifelse(Diff_Post_OP_OFFON>=5, ">5", "<5"))
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONOFF=ifelse(Diff_Post_OP_ONOFF>=5, ">5", "<5"))
+
+
+
+wilcox.test(Asymmetry_Pre_vs_Post$AxialScoreOFFbefore[Asymmetry_Pre_vs_Post$Diff_Pre_OP==">5"], 
+            Asymmetry_Pre_vs_Post$AxialScoreOFFbefore[Asymmetry_Pre_vs_Post$Diff_Pre_OP=="<5"], paired=F, conf.int=F)
+
+# 	Wilcoxon rank sum test with continuity
+# 	correction
+# 
+# data:  Asymmetry_Pre_vs_Post$AxialScoreOFFbefore[Asymmetry_Pre_vs_Post$Diff_Pre_OP == ">5"] and Asymmetry_Pre_vs_Post$AxialScoreOFFbefore[Asymmetry_Pre_vs_Post$Diff_Pre_OP == "<5"]
+# W = 26663, p-value = 0.0005594
+# alternative hypothesis: true location shift is not equal to 0
+
 
 wilcox.test(Asymmetry_Pre_vs_Post$AxialScoreON[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON==">5"], 
             Asymmetry_Pre_vs_Post$AxialScoreON[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON=="<5"], paired=F, conf.int=F)
@@ -2076,6 +2162,8 @@ wilcox.test(Asymmetry_Pre_vs_Post$AxialScoreONOFF[Asymmetry_Pre_vs_Post$Diff_Pos
 
 # -----------------
 # PIGD vs TD dominant phenotypes UPDRSIII & UPDRSII ---------------------------------------------------------------
+
+# OFF OF Pre-op 
 
 OFF_before_ALL <- data.frame(df_names) %>%
   filter(grepl("^OFF_", df_names)) %>%
@@ -2242,6 +2330,360 @@ PIGD_TD %>%
   scale_fill_brewer(palette="PuBu") +
   scale_colour_brewer(palette="PuBu") +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+# OFF OFF  post-op
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+OFF_after_ALL <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+    filter(grepl("1$", df_names)) %>%
+    filter(grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)|
+           grepl("3.18", df_names)
+           ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFF_after_ALL))
+
+match <- c("OFF_3.10_1", "OFF_3.11_1", "OFF_3.12_1", "OFF_3.15_Left1", "OFF_3.15_Right_1", "OFF_3.16_Left1", 
+           "OFF_3.16_Right1", "OFF_3.17_Inf_Left_1", "OFF_3.17_Inf_Right1", "OFF_3.17_Sup_Left_1", 
+           "OFF_3.17_Sup_Right1", "OFF_3.17_lip_1", "OFF_3.18_1")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_after_ALL <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_after_ALL <- OFF_after_ALL[-1,]
+
+names(OFF_after_ALL)
+
+OFF_after_ALL <- data.frame(OFF_after_ALL %>% gather(Var, Value, OFF_3.10_1:OFF_3.18_1  ) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<13)) %>% select(SUBJID) %>%
+  inner_join(OFF_after_ALL)
+ 
+OFF_after_ALL <- data.frame(OFF_after_ALL) %>% mutate_each(as.numeric, OFF_3.10_1:OFF_3.18_1)
+sum(is.na(OFF_after_ALL))
+
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% filter(VISIT == 1) %>% select(SUBJID, MDS2_10OFF, MDS2_12OFF, MDS2_13OFF)
+sum(is.na(UPDRSI_II))
+
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(OFF_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 1.54409
+# 3[1] 0.72608
+# 4[1] 0.9661
+# 5[1] 0.60075
+# 6[1] 0.68097
+# 7[1] 0.32463
+# 8[1] 0.4403
+# 9[1] 0.22201
+# 10[1] 0.89739
+# 11[1] 0.88619
+# 12[1] 0.46269
+# 13[1] 0.43843
+# 14[1] 1.93609
+
+dim_desc(OFF_after_ALL) 
+sum(is.na(OFF_after_ALL)) 
+drop_na(OFF_after_ALL) 
+
+Imputed <- imputePCA(OFF_after_ALL[,-1],ncp=2, scale = T)
+
+OFF_after_ALL <- OFF_after_ALL %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(OFF_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 1.54429
+# 3[1] 0.72862
+# 4[1] 0.9674
+# 5[1] 0.60075
+# 6[1] 0.68097
+# 7[1] 0.32463
+# 8[1] 0.4403
+# 9[1] 0.22201
+# 10[1] 0.89739
+# 11[1] 0.88619
+# 12[1] 0.46269
+# 13[1] 0.43843
+# 14[1] 1.93949
+
+sum(is.na(OFF_after_ALL))
+
+sum(OFF_after_ALL<0)
+
+PIGD_TD <- OFF_after_ALL %>% inner_join(UPDRSI_II)
+names(PIGD_TD)
+
+PIGD_TD <- PIGD_TD %>% 
+  mutate(PIGD_Score = MDS2_12OFF+MDS2_13OFF+OFF_3.10_1+OFF_3.11_1+OFF_3.12_1) %>%
+  mutate(TD_Score = OFF_3.15_Right_1+OFF_3.15_Left1+OFF_3.16_Right1+OFF_3.16_Left1+
+           OFF_3.17_lip_1+OFF_3.17_Sup_Right1+OFF_3.17_Sup_Left_1+OFF_3.17_Inf_Right1+OFF_3.17_Inf_Left_1+OFF_3.18_1) %>%
+  select(SUBJID, PIGD_Score, TD_Score) %>%
+  mutate(PIGD_Score=ifelse(PIGD_Score<0.1,PIGD_Score+0.1, PIGD_Score)) %>%
+  mutate(TD_Score=ifelse(TD_Score<0.1,TD_Score+0.1, TD_Score)) %>%
+  mutate(PIGD_Score=PIGD_Score/5, TD_Score=TD_Score/11) %>%
+  mutate(Type=TD_Score/PIGD_Score)
+
+PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet"))) %>%
+  group_by(Pheno) %>% count()
+
+#  Pheno     n
+# 1 Indet    14
+# 2 PIGD    154
+# 3 TD       57
+ 
+# 0.06222222
+# 0.6844444
+# 0.2533333
+
+
+PIGD_TD <- PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet")))
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Post_OP_OFFOFF)
+
+PIGD_TD <- Asymmetry_Pre_vs_Post %>% inner_join(PIGD_TD)
+
+PIGD_TD %>% group_by(Pheno) %>% summarise(n=mean(Diff_Post_OP_OFFOFF))
+
+# 1 Indet  6   
+# 2 PIGD   4.65
+# 3 TD     6.03
+
+PIGD_TD <- PIGD_TD %>% select(SUBJID, Pheno, Diff_Post_OP_OFFOFF)
+
+kruskal.test(Diff_Post_OP_OFFOFF ~ Pheno, data = PIGD_TD)
+
+# 	Kruskal-Wallis rank sum test
+# 
+# data:  Diff_Post_OP_OFFOFF by Pheno
+# Kruskal-Wallis chi-squared = 2.4349, df = 2, p-value = 0.296
+
+
+pairwise.wilcox.test(PIGD_TD$Diff_Post_OP_OFFOFF, PIGD_TD$Pheno,
+                 p.adjust.method = "bonferroni")
+
+# 	Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
+# 
+# data:  PIGD_TD$Diff_Post_OP_OFFOFF and PIGD_TD$Pheno 
+# 
+#      Indet PIGD
+# PIGD 0.42  -   
+# TD   1.00  1.00
+# 
+# P value adjustment method: bonferroni
+
+
+PIGD_TD %>%
+   mutate(Pheno=factor(Pheno, levels=c("PIGD" ,"Indet", "TD"))) %>%
+  ggplot(aes(Pheno, Diff_Post_OP_OFFOFF, colour=Pheno, fill=Pheno )) +
+  geom_violin(alpha=0.4, show.legend = FALSE) +
+  geom_boxplot(alpha=0.8, notch = FALSE, notchwidth = 0.3, varwidth = F, show.legend = FALSE) +
+  geom_jitter(width=0.2, height = 0.6, alpha=0.9, show.legend = FALSE) +
+  theme_minimal() +
+  xlab("\n  Clinical Phenotype") + ylab("Absolute R-to-L Difference \n (i.e. Asymmetry) \n") +
+  scale_fill_brewer(palette="PuBu") +
+  scale_colour_brewer(palette="PuBu") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+
+# ON ON  post-op
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+ON_after_ALL <- data.frame(df_names) %>%
+  filter(grepl("^ON", df_names)) %>%
+    filter(grepl("1$", df_names)) %>%
+    filter(grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)|
+           grepl("3.18", df_names)
+           ) %>%
+  arrange(df_names) 
+
+toString(as.list(ON_after_ALL))
+
+match <- c("ON_3.10_1", "ON_3.11_1", "ON_3.12_1", "ON_3.15_Left1", "ON_3.15_Right_1", "ON_3.16_Left1", 
+           "ON_3.16_Right1", "ON_3.17_Inf_Left_1", "ON_3.17_Inf_Right1", "ON_3.17_Sup_Left_1", 
+           "ON_3.17_Sup_Right1", "ON_3.17_lip_1", "ON_3.18_1")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ON_after_ALL <- UPDRSIII_COMPLET_V0_V1[which_names]
+ON_after_ALL <- ON_after_ALL[-1,]
+
+names(ON_after_ALL)
+
+ON_after_ALL <- data.frame(ON_after_ALL %>% gather(Var, Value, ON_3.10_1:ON_3.18_1  ) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<13)) %>% select(SUBJID) %>%
+  inner_join(ON_after_ALL)
+ 
+ON_after_ALL <- data.frame(ON_after_ALL) %>% mutate_each(as.numeric, ON_3.10_1:ON_3.18_1)
+sum(is.na(ON_after_ALL))
+
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% filter(VISIT == 1) %>% select(SUBJID, MDS2_10ON, MDS2_12ON, MDS2_13ON)
+sum(is.na(UPDRSI_II))
+
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(ON_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 0.60047
+# 3[1] 0.15603
+# 4[1] 0.48821
+# 5[1] 0.1844
+# 6[1] 0.17021
+# 7[1] 0.08274
+# 8[1] 0.11111
+# 9[1] 0.01891
+# 10[1] 0.17021
+# 11[1] 0.17967
+# 12[1] 0.07565
+# 13[1] 0.09693
+# 14[1] 0.45154
+
+dim_desc(ON_after_ALL) 
+sum(is.na(ON_after_ALL)) 
+drop_na(ON_after_ALL) 
+
+Imputed <- imputePCA(ON_after_ALL[,-1],ncp=2, scale = T)
+
+ON_after_ALL <- ON_after_ALL %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(ON_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 0.60044
+# 3[1] 0.15612
+# 4[1] 0.48807
+# 5[1] 0.18441
+# 6[1] 0.17019
+# 7[1] 0.08273
+# 8[1] 0.11108
+# 9[1] 0.0189
+# 10[1] 0.17019
+# 11[1] 0.17961
+# 12[1] 0.07564
+# 13[1] 0.09691
+# 14[1] 0.45147
+
+sum(is.na(ON_after_ALL))
+
+sum(ON_after_ALL<0)
+
+PIGD_TD <- ON_after_ALL %>% inner_join(UPDRSI_II)
+names(PIGD_TD)
+
+PIGD_TD <- PIGD_TD %>% 
+  mutate(PIGD_Score = MDS2_12ON+MDS2_13ON+ON_3.10_1+ON_3.11_1+ON_3.12_1) %>%
+  mutate(TD_Score = ON_3.15_Right_1+ON_3.15_Left1+ON_3.16_Right1+ON_3.16_Left1+
+           ON_3.17_lip_1+ON_3.17_Sup_Right1+ON_3.17_Sup_Left_1+ON_3.17_Inf_Right1+ON_3.17_Inf_Left_1+ON_3.18_1) %>%
+  select(SUBJID, PIGD_Score, TD_Score) %>%
+  mutate(PIGD_Score=ifelse(PIGD_Score<0.1,PIGD_Score+0.1, PIGD_Score)) %>%
+  mutate(TD_Score=ifelse(TD_Score<0.1,TD_Score+0.1, TD_Score)) %>%
+  mutate(PIGD_Score=PIGD_Score/5, TD_Score=TD_Score/11) %>%
+  mutate(Type=TD_Score/PIGD_Score)
+
+PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet"))) %>%
+  group_by(Pheno) %>% count()
+
+#   Pheno     n
+# 1 Indet     3
+# 2 PIGD     85
+# 3 TD       11
+ 
+# 0.03030303
+# 0.8585859
+# 0.1111111
+
+
+PIGD_TD <- PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet")))
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Post_OP_ONON)
+
+PIGD_TD <- Asymmetry_Pre_vs_Post %>% inner_join(PIGD_TD)
+
+PIGD_TD %>% group_by(Pheno) %>% summarise(n=mean(Diff_Post_OP_ONON))
+
+# 1 Indet  2.67
+# 2 PIGD   2.27
+# 3 TD     2.21
+
+PIGD_TD <- PIGD_TD %>% select(SUBJID, Pheno, Diff_Post_OP_ONON)
+
+kruskal.test(Diff_Post_OP_ONON ~ Pheno, data = PIGD_TD)
+
+# 	Kruskal-Wallis rank sum test
+# 
+# data:  Diff_Post_OP_ONON by Pheno
+# Kruskal-Wallis chi-squared = 0.4379, df = 2, p-value = 0.8034
+
+
+pairwise.wilcox.test(PIGD_TD$Diff_Post_OP_ONON, PIGD_TD$Pheno,
+                 p.adjust.method = "bonferroni")
+
+# 	Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
+# 
+# data:  PIGD_TD$Diff_Post_OP_ONON and PIGD_TD$Pheno 
+# 
+#      Indet PIGD
+# PIGD 1     -   
+# TD   1     1   
+# 
+# P value adjustment method: bonferroni 
+
+PIGD_TD %>%
+   mutate(Pheno=factor(Pheno, levels=c("PIGD" ,"Indet", "TD"))) %>%
+  ggplot(aes(Pheno, Diff_Post_OP_ONON, colour=Pheno, fill=Pheno )) +
+  geom_violin(alpha=0.4, show.legend = FALSE) +
+  geom_boxplot(alpha=0.8, notch = FALSE, notchwidth = 0.3, varwidth = F, show.legend = FALSE) +
+  geom_jitter(width=0.2, height = 0.6, alpha=0.9, show.legend = FALSE) +
+  theme_minimal() +
+  xlab("\n  Clinical Phenotype") + ylab("Absolute R-to-L Difference \n (i.e. Asymmetry) \n") +
+  scale_fill_brewer(palette="PuBu") +
+  scale_colour_brewer(palette="PuBu") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
 
 
 
@@ -2610,19 +3052,45 @@ Pooled %>% group_by(Worst_OFF_before, Worst_OFFOFF_After) %>% count()
 # 8 Right            Left                  77
 # 9 Right            Right                132
 
-Pooled %>% group_by(Worst_OFF_before, Worst_ONON_After) %>% count()
+Pooled %>% group_by(Worst_OFFOFF_After, Worst_ONON_After) %>% count()
 
-#   Worst_OFF_before Worst_ONON_After     n
-# 1 Equal            Equal                7
-# 2 Equal            Left                17
-# 3 Equal            Right                7
-# 4 Left             Equal               37
-# 5 Left             Left               188
-# 6 Left             Right               61
-# 7 Right            Equal               41
-# 8 Right            Left               108
-# 9 Right            Right               71
+#   Worst_OFFOFF_After Worst_ONON_After     n
+# 1 Equal              Equal               10
+# 2 Equal              Left                10
+# 3 Equal              Right                8
+# 4 Left               Equal               39
+# 5 Left               Left               228
+# 6 Left               Right               32
+# 7 Right              Equal               36
+# 8 Right              Left                75
+# 9 Right              Right               99
 
+Pooled %>% group_by(Worst_OFFOFF_After, Worst_OFFON_After) %>% count()
+
+#   Worst_OFFOFF_After Worst_OFFON_After     n
+# 1 Equal              Equal                 6
+# 2 Equal              Left                 13
+# 3 Equal              Right                 9
+# 4 Left               Equal                23
+# 5 Left               Left                257
+# 6 Left               Right                19
+# 7 Right              Equal                26
+# 8 Right              Left                 57
+# 9 Right              Right               127
+
+
+Pooled %>% group_by(Worst_OFFOFF_After, Worst_ONOFF_After) %>% count()
+
+#   Worst_OFFOFF_After Worst_ONOFF_After     n
+# 1 Equal              Equal                 7
+# 2 Equal              Left                  8
+# 3 Equal              Right                13
+# 4 Left               Equal                24
+# 5 Left               Left                239
+# 6 Left               Right                36
+# 7 Right              Equal                20
+# 8 Right              Left                 57
+# 9 Right              Right               133
 # ---------------------------------
 # MEDICATIONS -----------------------------------------------------------------
 
@@ -3020,21 +3488,30 @@ pairwise.wilcox.test(UPDRSIII_TOTAUX$score, UPDRSIII_TOTAUX$eval, p.adj = "bonfe
 
 # ------------------------
 
-# Post OP ON-ON: UPDRS III in symmetric vs symmetric ------------------------------
+# UPDRS III in symmetric vs symmetric ------------------------------
 
 
 Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
 SUBJID <- Asymmetry_Pre_vs_Post %>% select(SUBJID) # 537
 
-temp <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Post_OP_ONON) %>%
-  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+temp <- Asymmetry_Pre_vs_Post %>% 
+  mutate(Diff_Pre_OP =ifelse(Diff_Pre_OP >=5,">5", "no"))  %>%
+  mutate(Diff_Post_OP_OFFOFF=ifelse(Diff_Post_OP_OFFOFF>=5,">5", "no"))  %>%
+  mutate(Diff_Post_OP_ONOFF =ifelse(Diff_Post_OP_ONOFF >=5,">5", "no"))  %>%
+  mutate(Diff_Post_OP_OFFON=ifelse(Diff_Post_OP_OFFON>=5,">5", "no"))  %>%
+  mutate(Diff_Post_OP_ONON =ifelse(Diff_Post_OP_ONON >=5,">5", "no"))  
 
 
 UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
 UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
 
-UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, ON_TOTALCALC_V1) %>% 
-  mutate(ON_TOTALCALC_V1=as.numeric(ON_TOTALCALC_V1)) %>% drop_na()
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, TOT_OFF_DRUG_V0  , OFF_TOTALCALC_V1 , ONOFF_TOTALCALC_V1, OFFON_TOTALCALC_V1, ON_TOTALCALC_V1 ) %>% 
+  mutate(TOT_OFF_DRUG_V0=as.numeric(TOT_OFF_DRUG_V0)) %>% 
+    mutate(OFF_TOTALCALC_V1=as.numeric(OFF_TOTALCALC_V1)) %>% 
+    mutate(ONOFF_TOTALCALC_V1=as.numeric(ONOFF_TOTALCALC_V1)) %>% 
+    mutate(OFFON_TOTALCALC_V1=as.numeric(OFFON_TOTALCALC_V1)) %>% 
+    mutate(ON_TOTALCALC_V1=as.numeric(ON_TOTALCALC_V1)) %>% 
+  drop_na()
 
 temp <- temp %>% left_join(UPDRSIII_TOTAUX)
 
@@ -3045,11 +3522,230 @@ temp %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(ON_TOTALCALC_V1, na
 # 2 no                 10.1  7.69
 
 
-wilcox.test(temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON ==">5"], temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON !=">5"])
 
+
+
+
+
+
+wilcox.test(temp$TOT_OFF_DRUG_V0[temp$Diff_Pre_OP ==">5"], temp$TOT_OFF_DRUG_V0[temp$Diff_Pre_OP !=">5"])
+# 	Wilcoxon rank sum test with continuity correction
+# 
+# data:  temp$TOT_OFF_DRUG_V0[temp$Diff_Pre_OP == ">5"] and temp$TOT_OFF_DRUG_V0[temp$Diff_Pre_OP != ">5"]
+# W = 29985, p-value = 0.7548
+# alternative hypothesis: true location shift is not equal to 0
+
+
+
+temp %>%
+  rename("Asymmetric Pre-OP [OFF/OFF]"="Diff_Pre_OP") %>%
+  rename("Total UPDRS III Pre-OP [OFF/OFF]"="TOT_OFF_DRUG_V0") %>%
+  ggplot(aes(`Asymmetric Pre-OP [OFF/OFF]`  , `Total UPDRS III Pre-OP [OFF/OFF]`, 
+             colour=`Asymmetric Pre-OP [OFF/OFF]`, fill=`Asymmetric Pre-OP [OFF/OFF]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.8, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Pre-OP [OFF/OFF]") + ylab("Total UPDRS III Pre-OP [OFF/OFF] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0F4C5C")) +
+  scale_colour_manual(values=c("#B5838D",  "#0F4C5C")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+wilcox.test(temp$OFF_TOTALCALC_V1[temp$Diff_Post_OP_OFFOFF ==">5"], temp$OFF_TOTALCALC_V1[temp$Diff_Post_OP_OFFOFF !=">5"])
+# 	Wilcoxon rank sum test with continuity correction
+# 
+# data:  temp$OFF_TOTALCALC_V1[temp$Diff_Post_OP_OFFOFF == ">5"] and temp$OFF_TOTALCALC_V1[temp$Diff_Post_OP_OFFOFF != ">5"]
+# W = 34332, p-value = 0.01514
+# alternative hypothesis: true location shift is not equal to 0
+
+
+
+temp %>%
+  rename("Asymmetric Post-OP [OFF/OFF]"="Diff_Post_OP_OFFOFF") %>%
+  rename("Total UPDRS III Post-OP [OFF/OFF]"="OFF_TOTALCALC_V1") %>%
+  ggplot(aes(`Asymmetric Post-OP [OFF/OFF]`  , `Total UPDRS III Post-OP [OFF/OFF]`, 
+             colour=`Asymmetric Post-OP [OFF/OFF]`, fill=`Asymmetric Post-OP [OFF/OFF]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.8, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Post-OP [OFF/OFF]") + ylab("Total UPDRS III Post-OP [OFF/OFF] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0F4C5C")) +
+  scale_colour_manual(values=c("#B5838D",  "#0F4C5C")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+wilcox.test(temp$ONOFF_TOTALCALC_V1[temp$Diff_Post_OP_ONOFF ==">5"], temp$ONOFF_TOTALCALC_V1[temp$Diff_Post_OP_ONOFF !=">5"])
+# 	Wilcoxon rank sum test with continuity correction
+# 
+# data:  temp$ONOFF_TOTALCALC_V1[temp$Diff_Post_OP_ONOFF == ">5"] and temp$ONOFF_TOTALCALC_V1[temp$Diff_Post_OP_ONOFF != ">5"]
+# W = 35312, p-value = 1.817e-07
+# alternative hypothesis: true location shift is not equal to 0
+
+
+
+temp %>%
+  rename("Asymmetric Post-OP [ON/OFF]"="Diff_Post_OP_ONOFF") %>%
+  rename("Total UPDRS III Post-OP [ON/OFF]"="ONOFF_TOTALCALC_V1") %>%
+  ggplot(aes(`Asymmetric Post-OP [ON/OFF]`  , `Total UPDRS III Post-OP [ON/OFF]`, 
+             colour=`Asymmetric Post-OP [ON/OFF]`, fill=`Asymmetric Post-OP [ON/OFF]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.8, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Post-OP [ON/OFF]") + ylab("Total UPDRS III Post-OP [ON/OFF] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0F4C5C")) +
+  scale_colour_manual(values=c("#B5838D",  "#0F4C5C")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+wilcox.test(temp$OFFON_TOTALCALC_V1[temp$Diff_Post_OP_OFFON ==">5"], temp$OFFON_TOTALCALC_V1[temp$Diff_Post_OP_OFFON !=">5"])
+# 	Wilcoxon rank sum test with continuity correction
+# 
+# data:  temp$OFFON_TOTALCALC_V1[temp$Diff_Post_OP_OFFON == ">5"] and temp$OFFON_TOTALCALC_V1[temp$Diff_Post_OP_OFFON != ">5"]
+# W = 32025, p-value = 3.814e-09
+# alternative hypothesis: true location shift is not equal to 0
+
+
+
+temp %>%
+  rename("Asymmetric Post-OP [OFF/ON]"="Diff_Post_OP_OFFON") %>%
+  rename("Total UPDRS III Post-OP [OFF/ON]"="OFFON_TOTALCALC_V1") %>%
+  ggplot(aes(`Asymmetric Post-OP [OFF/ON]`  , `Total UPDRS III Post-OP [OFF/ON]`, 
+             colour=`Asymmetric Post-OP [OFF/ON]`, fill=`Asymmetric Post-OP [OFF/ON]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.8, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Post-OP [OFF/ON]") + ylab("Total UPDRS III Post-OP [OFF/ON] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0F4C5C")) +
+  scale_colour_manual(values=c("#B5838D",  "#0F4C5C")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+wilcox.test(temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON ==">5"], temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON !=">5"])
 # 	Wilcoxon rank sum test with continuity correction
 # data:  temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON == ">5"] and temp$ON_TOTALCALC_V1[temp$Diff_Post_OP_ONON != ">5"]
 # W = 21924, p-value = 1.261e-10
 # alternative hypothesis: true location shift is not equal to 0
+
+
+
+temp %>%
+  rename("Asymmetric Post-OP [ON/ON]"="Diff_Post_OP_ONON") %>%
+  rename("Total UPDRS III Post-OP [ON/ON]"="ON_TOTALCALC_V1") %>%
+  ggplot(aes(`Asymmetric Post-OP [ON/ON]`  , `Total UPDRS III Post-OP [ON/ON]`, 
+             colour=`Asymmetric Post-OP [ON/ON]`, fill=`Asymmetric Post-OP [ON/ON]` )) +
+  geom_jitter(width=0.2, height = 0.2, alpha=0.7, size=1, show.legend = FALSE) +
+  geom_violin(alpha=0.5) +
+  geom_boxplot(alpha=0.8, notch = F,  show.legend = T, outlier.alpha = 0) +
+  theme_minimal() +
+  xlab("\n Asymmetric Post-OP [ON/ON]") + ylab("Total UPDRS III Post-OP [ON/ON] \n") +
+  scale_fill_manual(values=c("#B5838D", "#0F4C5C")) +
+  scale_colour_manual(values=c("#B5838D",  "#0F4C5C")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+SUBJID <- Asymmetry_Pre_vs_Post %>% select(SUBJID) # 537
+
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, TOT_OFF_DRUG_V0  , OFF_TOTALCALC_V1 , ONOFF_TOTALCALC_V1, OFFON_TOTALCALC_V1, ON_TOTALCALC_V1 ) %>% 
+  mutate(TOT_OFF_DRUG_V0=as.numeric(TOT_OFF_DRUG_V0)) %>% 
+    mutate(OFF_TOTALCALC_V1=as.numeric(OFF_TOTALCALC_V1)) %>% 
+    mutate(ONOFF_TOTALCALC_V1=as.numeric(ONOFF_TOTALCALC_V1)) %>% 
+    mutate(OFFON_TOTALCALC_V1=as.numeric(OFFON_TOTALCALC_V1)) %>% 
+    mutate(ON_TOTALCALC_V1=as.numeric(ON_TOTALCALC_V1)) %>% 
+  drop_na()
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>%inner_join(UPDRSIII_TOTAUX)
+
+
+cor.test(Asymmetry_Pre_vs_Post$Diff_Pre_OP, Asymmetry_Pre_vs_Post$TOT_OFF_DRUG_V0)
+
+# 	Pearson's product-moment correlation
+# 
+# data:  Asymmetry_Pre_vs_Post$Diff_Pre_OP and Asymmetry_Pre_vs_Post$TOT_OFF_DRUG_V0
+# t = 0.25698, df = 492, p-value = 0.7973
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  -0.07671539  0.09970507
+# sample estimates:
+#        cor 
+# 0.01158499 
+
+
+cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF, Asymmetry_Pre_vs_Post$OFF_TOTALCALC_V1)
+
+# 	Pearson's product-moment correlation
+# 
+# data:  Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF and Asymmetry_Pre_vs_Post$OFF_TOTALCALC_V1
+# t = 3.3935, df = 492, p-value = 0.0007459
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  0.06385934 0.23629866
+# sample estimates:
+#       cor 
+#0.1512293 
+
+cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF, Asymmetry_Pre_vs_Post$ONOFF_TOTALCALC_V1)
+
+# 	Pearson's product-moment correlation
+# 
+# data:  Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF and Asymmetry_Pre_vs_Post$ONOFF_TOTALCALC_V1
+# t = 6.1886, df = 492, p-value = 1.28e-09
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  0.1849004 0.3486936
+# sample estimates:
+#       cor 
+# 0.2687386 
+
+cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON, Asymmetry_Pre_vs_Post$OFFON_TOTALCALC_V1)
+
+# 	Pearson's product-moment correlation
+# 
+# data:  Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON and Asymmetry_Pre_vs_Post$OFFON_TOTALCALC_V1
+# t = 8.5769, df = 492, p-value < 2.2e-16
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  0.2813833 0.4350327
+# sample estimates:
+#       cor 
+# 0.3606524
+
+
+cor.test(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON, Asymmetry_Pre_vs_Post$ON_TOTALCALC_V1)
+
+# 	Pearson's product-moment correlation
+# 
+# data:  Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON and Asymmetry_Pre_vs_Post$ON_TOTALCALC_V1
+# t = 7.2938, df = 492, p-value = 1.213e-12
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  0.2305064 0.3898542
+# sample estimates:
+#      cor 
+# 0.312376 
+
+
+Asymmetry_Pre_vs_Post %>%
+  ggplot(aes(Diff_Post_OP_OFFON, OFFON_TOTALCALC_V1)) +
+  geom_jitter() +
+  xlim(-1,10) +
+  geom_smooth(method="lm")
 
 # ------------------------------
