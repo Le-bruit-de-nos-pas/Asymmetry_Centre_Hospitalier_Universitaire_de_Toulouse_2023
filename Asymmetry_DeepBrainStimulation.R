@@ -2,6 +2,10 @@ library(readxl)
 library(tidyverse)
 library(data.table)
 library(missMDA)
+library(ISLR2)
+library(leaps)
+library(glmnet)
+
 
 
 
@@ -1243,7 +1247,7 @@ temp <- temp %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no"
 wilcox.test(temp$`Post_OP_[ON]`[temp$Diff_Post_OP_ONON==">5"], temp$`Post_OP_[ON]`[temp$Diff_Post_OP_ONON!=">5"])
 
 temp %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) %>%
-  group_by(Diff_Post_OP_ONON) %>% summarise(n=mean(`Post_OP_[ON]`))
+  group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(`Post_OP_[ON]`) , sd=sd(`Post_OP_[ON]`) )
 
 #  Diff_Post_OP_ONON     n
 #   <chr>             <dbl>
@@ -1257,6 +1261,41 @@ temp %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) %>%
 # alternative hypothesis: true location shift is not equal to 0
 
 # -------------------
+# UPDRS II Axial and Bimanual -----------------------------
+
+
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+
+UPDRSI_II <- UPDRSI_II %>% gather(item, value, MDS_2_4ON:MDS2_9ON) %>%
+   mutate(state=ifelse(grepl("ON", item), "ON", "OFF")) %>%
+  filter(state=="ON" & VISIT==1) %>% select(-c(state, VISIT))
+
+unique(UPDRSI_II$item)
+
+Axial <- UPDRSI_II %>% filter(item=="MDS2_11ON"|item=="MDS2_12ON"|item=="MDS2_13ON") %>%
+  group_by(SUBJID) %>% summarise(Axial=sum(value))
+
+
+Bimanual <- UPDRSI_II %>% filter(item=="MDS_2_4ON"|item=="MDS2_5ON"|item=="MDS2_6ON"|
+                                   item=="MDS2_8ON"|item=="MDS2_9ON") %>%
+  group_by(SUBJID) %>% summarise(Bimanual=sum(value))
+
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% inner_join(Axial) %>% inner_join(Bimanual)
+
+Asymmetry_Pre_vs_Post %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(Axial), sd=sd(Axial))
+Asymmetry_Pre_vs_Post %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(Bimanual), sd=sd(Bimanual))
+
+wilcox.test(Asymmetry_Pre_vs_Post$Axial[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON==">5"], Asymmetry_Pre_vs_Post$Axial[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON!=">5"])
+wilcox.test(Asymmetry_Pre_vs_Post$Bimanual[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON==">5"], Asymmetry_Pre_vs_Post$Bimanual[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON!=">5"])
+
+# --------------------------
+
 # PDQ39 --------------------------------------------------
 
 PDQ39 <- fread("Processed_data/PDQ39.txt")
@@ -1367,6 +1406,17 @@ Asymmetry_Pre_vs_Post %>%
   xlab("\n Abs R-to-L Asymmetry \n Post-OP [ON-ON] ") + 
   ylab("PDQ39 \n Post-OP\n")
   
+
+
+temp <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON =ifelse(Diff_Post_OP_ONON >=5,">5", "no")) 
+
+wilcox.test(temp$PDQ39_Post [temp$Diff_Post_OP_ONON==">5"], temp$PDQ39_Post[temp$Diff_Post_OP_ONON!=">5"])
+
+temp %>% 
+  group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(PDQ39_Post ) , sd=sd(PDQ39_Post ) )
+
+
+
 # ---------------------------
 
 # PDQ39 sub-scores --------------------------------
@@ -1683,6 +1733,15 @@ temp %>% group_by(Diff_Post_OP_ONON) %>% summarise(Mobility=mean(Mobility), Dail
 # 1 >5                    15.8        8.24      7.66   3.91          1.92      4.22          3.96             4.42
 # 2 no                    12.8        6.78      7.43   3.74          1.69      3.92          3.30             3.98
 
+
+temp %>% group_by(Diff_Post_OP_ONON) %>% summarise(Mobility=sd(Mobility), DailyLiving=sd(DailyLiving), 
+                                        Emotional=sd(Emotional), Stigma=sd(Stigma), SocialSupport=sd(SocialSupport),
+                                        Cognition=sd(Cognition), Communication=sd(Communication), BodilyDiscomfort=sd(BodilyDiscomfort))
+
+#   Diff_Post_OP_ONON Mobility DailyLiving Emotional Stigma SocialSupport Cognition Communication BodilyDiscomfort
+#   <chr>                <dbl>       <dbl>     <dbl>  <dbl>         <dbl>     <dbl>         <dbl>            <dbl>
+# 1 >5                    8.77        4.52      3.95   3.65          2.14      2.88          2.27             2.21
+# 2 no                    8.86        4.54      4.57   3.17          2.12      2.67          2.50             2.45
 
 wilcox.test(temp$Mobility[temp$Diff_Post_OP_ONON==">5"], temp$Mobility[temp$Diff_Post_OP_ONON=="no"], paired=F, conf.int=TRUE)
 
@@ -3257,6 +3316,10 @@ Asymmetry_Pre_vs_Post %>%  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "<5")
 Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5, ">5", "<5")) %>% group_by(Diff_Post_OP_ONON) %>% summarise(n=mean(Diff_Amp))
 Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5, ">5", "<5")) %>% group_by(Diff_Post_OP_ONON) %>% summarise(n=mean(Diff_Freq))
 
+Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5, ">5", "<5")) %>% group_by(Diff_Post_OP_ONON) %>% summarise(n=sd(Diff_Amp))
+Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5, ">5", "<5")) %>% group_by(Diff_Post_OP_ONON) %>% summarise(n=sd(Diff_Freq))
+
+
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>%  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "<5")) 
 
 wilcox.test(Asymmetry_Pre_vs_Post$Diff_Amp[Asymmetry_Pre_vs_Post$Diff_Pre_OP==">5"], 
@@ -3266,6 +3329,10 @@ Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_ONON=ife
 
 wilcox.test(Asymmetry_Pre_vs_Post$Diff_Amp[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON==">5"], 
             Asymmetry_Pre_vs_Post$Diff_Amp[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON=="<5"], paired=F, conf.int=F)
+
+
+wilcox.test(Asymmetry_Pre_vs_Post$Diff_Freq[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON==">5"], 
+            Asymmetry_Pre_vs_Post$Diff_Freq[Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON=="<5"], paired=F, conf.int=F)
 
 
 Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>%  mutate(Diff_Post_OP_OFFOFF=ifelse(Diff_Post_OP_OFFOFF>=5, ">5", "<5")) 
@@ -3312,6 +3379,11 @@ sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.
 
 
 # DEMOGRAPHICS
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
 
 DEMOGRAPHIE <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DEMOGRAPHIE ", skip=0, col_types = "text", trim_ws = TRUE)
 DEMOGRAPHIE <- SUBJID %>% inner_join(DEMOGRAPHIE)
@@ -3364,6 +3436,8 @@ DATES_DE_VISITES %>% inner_join(DEMOGRAPHIE %>% select(SUBJID, DDN)) %>%
   mutate(D_CHIR=as.numeric(str_sub(D_CHIR, 7L, 10L))) %>%
     mutate(DDN=as.numeric(str_sub(DDN, 4L, 7))) %>% 
   summarise(mean=mean(D_CHIR-DDN, na.rm=T), sd=sd(D_CHIR-DDN, na.rm=T))
+
+
 
 
 
@@ -3425,6 +3499,24 @@ Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_OFF) %>% spread(key=VISIT, value=
   summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
 
 
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
+Hoehn_YarhS_E <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+SCHWAB_ON <- Hoehn_YarhS_E %>% filter(grepl("V1", VISIT)) %>% select(SUBJID, SCHWAB_ON) %>% inner_join(Asymmetry_Pre_vs_Post) 
+
+SCHWAB_ON <- SCHWAB_ON %>% 
+ mutate(SCHWAB_ON=parse_number(SCHWAB_ON)) %>%
+  drop_na()
+  
+SCHWAB_ON %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(SCHWAB_ON ), sd=sd(SCHWAB_ON ))
+ 
+
+wilcox.test(SCHWAB_ON$SCHWAB_ON[SCHWAB_ON$Diff_Post_OP_ONON ==">5"], SCHWAB_ON$SCHWAB_ON[SCHWAB_ON$Diff_Post_OP_ONON !=">5"])
+
+
+
 
 Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_OFF) %>% spread(key=VISIT, value=HOEHN_YAHR_OFF) %>% 
   mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
@@ -3436,8 +3528,36 @@ Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_OFF) %>% spread(key=VISIT, va
   drop_na() %>%
   summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
 
+
+
+
+
+
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
+Hoehn_YarhS_E <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+Hoehn_YarhS_E <- Hoehn_YarhS_E %>% filter(grepl("V1", VISIT)) %>% select(SUBJID, HOEHN_YAHR_ON) %>% inner_join(Asymmetry_Pre_vs_Post) 
+
+Hoehn_YarhS_E <- Hoehn_YarhS_E %>% mutate(HOEHN_YAHR_ON = str_replace(HOEHN_YAHR_ON, "Stade ", "")) %>%
+    mutate(HOEHN_YAHR_ON = str_replace(HOEHN_YAHR_ON, ",", ".")) %>%
+ mutate(HOEHN_YAHR_ON=parse_number(HOEHN_YAHR_ON)) %>%
+  drop_na()
   
-  
+Hoehn_YarhS_E %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(HOEHN_YAHR_ON ), sd=sd(HOEHN_YAHR_ON ))
+ 
+
+wilcox.test(Hoehn_YarhS_E$HOEHN_YAHR_ON[Hoehn_YarhS_E$Diff_Post_OP_ONON ==">5"], Hoehn_YarhS_E$HOEHN_YAHR_ON[Hoehn_YarhS_E$Diff_Post_OP_ONON !=">5"])
+
+
+
+
+
+
+
+
 # MoCA
 
 MoCA_V0 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V0", skip=0, col_types = "text", trim_ws = TRUE)
@@ -3451,6 +3571,19 @@ MoCA_V1 <- SUBJID %>% inner_join(MoCA_V1) %>% select(SUBJID, MOCA_SCORE)
 mean(as.numeric(MoCA_V1$MOCA_SCORE), na.rm=T)
 sd(as.numeric(MoCA_V1$MOCA_SCORE), na.rm=T)
 
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+MoCA_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V1", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V1 <- MoCA_V1 %>% select(SUBJID, MOCA_SCORE) %>% inner_join(Asymmetry_Pre_vs_Post)
+
+MoCA_V1 %>% mutate(MOCA_SCORE=parse_number(MOCA_SCORE)) %>% drop_na() %>%
+  group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(MOCA_SCORE), sd=sd(MOCA_SCORE))
+ 
+MoCA_V1 <- MoCA_V1 %>% mutate(MOCA_SCORE=parse_number(MOCA_SCORE)) %>% drop_na()
+
+wilcox.test(MoCA_V1$MOCA_SCORE[MoCA_V1$Diff_Post_OP_ONON ==">5"], MoCA_V1$MOCA_SCORE[MoCA_V1$Diff_Post_OP_ONON !=">5"])
 
 # ---------------------
 # UPDRS III OFF pre-op vs post-op OFF-ON ----------------------------------------------------
@@ -3749,3 +3882,264 @@ Asymmetry_Pre_vs_Post %>%
   geom_smooth(method="lm")
 
 # ------------------------------
+# LEDD -----------------------------------------
+
+LEDD_asymmetry <- fread("Processed_data/LEDD_asymmetry.csv", sep=",")
+LEDD_asymmetry <- LEDD_asymmetry %>% drop_na()
+LEDD_asymmetry <- LEDD_asymmetry %>% filter(visit=="V1")
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(1,5)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff_Post_OP_ONON=ifelse(Diff_Post_OP_ONON>=5,">5", "no")) 
+
+LEDD_asymmetry%>% inner_join(Asymmetry_Pre_vs_Post) %>% group_by(Diff_Post_OP_ONON) %>% summarise(mean=mean(LEDD), sd=sd(LEDD))
+
+LEDD_asymmetry <- LEDD_asymmetry%>% inner_join(Asymmetry_Pre_vs_Post)
+
+wilcox.test(LEDD_asymmetry$LEDD  [LEDD_asymmetry$Diff_Post_OP_ONON==">5"], LEDD_asymmetry$LEDD [LEDD_asymmetry$Diff_Post_OP_ONON!=">5"])
+
+# -----------------------------------
+# Predict baseline factors associated with change in asymmetry --------------
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Pre_OP, Diff_Post_OP_ONON)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(Diff=Diff_Post_OP_ONON-Diff_Pre_OP) %>% select(-c(Diff_Pre_OP, Diff_Post_OP_ONON))
+
+
+DEMOGRAPHIE <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DEMOGRAPHIE ", skip=0, col_types = "text", trim_ws = TRUE)
+DATES_DE_VISITES  <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DATES_DE_VISITES ", skip=0, col_types = "text", trim_ws = TRUE)
+DATES_DE_VISITES <- DATES_DE_VISITES %>% select(SUBJID, D_CHIR)
+DATES_DE_VISITES <- DATES_DE_VISITES %>% inner_join(DEMOGRAPHIE %>% select(SUBJID, DDN)) %>% 
+  mutate(D_CHIR=as.numeric(str_sub(D_CHIR, 7L, 10L))) %>%
+    mutate(DDN=as.numeric(str_sub(DDN, 4L, 7))) %>%
+  drop_na() %>% mutate(AgeSurgery=D_CHIR-DDN) %>% select(SUBJID, AgeSurgery)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(DATES_DE_VISITES)
+
+
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, TOT_OFF_DRUG_V0) %>% 
+  mutate(TOT_OFF_DRUG_V0=as.numeric(TOT_OFF_DRUG_V0)) %>% drop_na()
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(UPDRSIII_TOTAUX)
+
+
+LEDD_asymmetry <- fread("Processed_data/LEDD_asymmetry.csv", sep=",")
+LEDD_asymmetry <- LEDD_asymmetry %>% drop_na() %>% filter(visit=="Screening") %>% select(-visit)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(LEDD_asymmetry)
+
+MoCA_V0 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V0", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V0 <- MoCA_V0 %>% select(SUBJID, MOCA_SCORE)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(MoCA_V0)
+
+
+Hoehn_YarhS_E <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+Hoehn_YarhS_E <- Hoehn_YarhS_E %>% filter(grepl("screening", VISIT)) %>% select(SUBJID, HOEHN_YAHR_OFF ) 
+Hoehn_YarhS_E <- Hoehn_YarhS_E %>% mutate(HOEHN_YAHR_OFF = str_replace(HOEHN_YAHR_OFF, "Stade ", "")) %>%
+    mutate(HOEHN_YAHR_OFF = str_replace(HOEHN_YAHR_OFF, ",", ".")) %>%
+ mutate(HOEHN_YAHR_OFF=parse_number(HOEHN_YAHR_OFF))
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(Hoehn_YarhS_E)
+
+
+Hoehn_YarhS_E <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+SCHWAB_OFF <- Hoehn_YarhS_E %>% filter(grepl("screening", VISIT)) %>% select(SUBJID, SCHWAB_OFF) 
+SCHWAB_OFF <- SCHWAB_OFF %>%  mutate(SCHWAB_OFF=parse_number(SCHWAB_OFF))
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(SCHWAB_OFF)
+
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% gather(item, value, MDS_2_4ON:MDS2_9ON) %>%
+   mutate(state=ifelse(grepl("ON", item), "ON", "OFF")) %>%
+   group_by(SUBJID, VISIT, state) %>% 
+   summarise(value=sum(value)) %>%
+   ungroup() %>%
+  mutate(VISIT=ifelse(VISIT==0, "Pre_OP", "Post_OP")) 
+UPDRSI_II <- UPDRSI_II %>% filter(VISIT=="Pre_OP"&state=="OFF") %>% rename("UPDRSII"="value") %>% select(SUBJID, UPDRSII)
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(UPDRSI_II)
+
+
+
+DEMOGRAPHIE <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "DEMOGRAPHIE ", skip=0, col_types = "text", trim_ws = TRUE)
+DEMOGRAPHIE <- DEMOGRAPHIE %>% select(SUBJID, DDN, D_1ER_SYMPT)
+
+DEMOGRAPHIE <- DEMOGRAPHIE %>% 
+  mutate(D_1ER_SYMPT=as.numeric(D_1ER_SYMPT)) %>%
+    mutate(DDN=as.numeric(str_sub(DDN, 4L, 7))) %>%
+  drop_na() %>% mutate(AgeOnset=D_1ER_SYMPT-DDN) %>% select(SUBJID, AgeOnset)
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% left_join(DEMOGRAPHIE)
+
+Asymmetry_Pre_vs_Post %>% drop_na()
+
+sum(is.na(Asymmetry_Pre_vs_Post))
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% mutate(MOCA_SCORE=as.numeric(MOCA_SCORE))
+names(Asymmetry_Pre_vs_Post)
+
+# summary(lm(Diff ~ AgeSurgery, data=Asymmetry_Pre_vs_Post)) β = 0.08136    , p = 0.000565
+# summary(lm(Diff ~ AgeOnset, data=Asymmetry_Pre_vs_Post)) β = 0.05562        , p = 0.0169 
+# summary(lm(Diff ~ HOEHN_YAHR_OFF, data=Asymmetry_Pre_vs_Post)) β = 0.4904             , p = 0.0206  
+
+Asymmetry_Pre_vs_Post_2 <- Asymmetry_Pre_vs_Post %>% drop_na() %>% select(-SUBJID)
+Asymmetry_Pre_vs_Post_2 <- Asymmetry_Pre_vs_Post_2 %>% sample_n(500, replace=T)
+
+summary(lm(Diff ~ ., data=Asymmetry_Pre_vs_Post_2))
+sum(is.na(Asymmetry_Pre_vs_Post_2))
+
+# Call:
+# lm(formula = Diff ~ ., data = Asymmetry_Pre_vs_Post_2)
+# 
+# Residuals:
+#      Min       1Q   Median       3Q      Max 
+# -20.4760  -2.6230   0.2299   2.9593   9.9958 
+# 
+# Coefficients:
+#                   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)     -1.116e+01  3.265e+00  -3.419 0.000681 ***
+# AgeSurgery       1.521e-01  4.910e-02   3.098 0.002059 ** 
+# TOT_OFF_DRUG_V0  1.065e-02  1.594e-02   0.668 0.504475    
+# LEDD             5.082e-04  4.348e-04   1.169 0.243068    
+# MOCA_SCORE       7.011e-02  6.545e-02   1.071 0.284615    
+# HOEHN_YAHR_OFF  -1.627e-02  3.320e-01  -0.049 0.960942    
+# SCHWAB_OFF      -1.239e-02  1.742e-02  -0.711 0.477255    
+# UPDRSII         -4.421e-04  2.866e-02  -0.015 0.987701    
+# AgeOnset        -5.980e-02  4.993e-02  -1.198 0.231666    
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 4.326 on 491 degrees of freedom
+# Multiple R-squared:  0.04542,	Adjusted R-squared:  0.02986 
+# F-statistic:  2.92 on 8 and 491 DF,  p-value: 0.003415
+
+
+sum(is.na(Asymmetry_Pre_vs_Post))
+
+Imputed <- imputePCA(Asymmetry_Pre_vs_Post[,-1],ncp=2, scale = T)
+Imputed <- Imputed$completeObs
+Imputed <- data.frame(Imputed)
+
+summary(lm(Diff ~ ., data=Imputed))
+
+summary(lm(Diff ~ ., data=Asymmetry_Pre_vs_Post_2))
+
+Imputed
+
+
+
+regit_full <- regsubsets(Diff ~ . , data=Imputed, nvmax=19)
+
+summary(regit_full)
+
+reg_summary <- summary(regit_full)
+
+names(reg_summary)
+
+reg_summary$rss
+
+plot(reg_summary$rss , xlab = " Number of Variables ", ylab = " RSS ", type = "l")
+plot(reg_summary$adjr2 , xlab = " Number of Variables ", ylab = " Adjusted RSq ", type = "l")
+plot(reg_summary$bic , xlab = " Number of Variables ", ylab = "BIC ", type = "l")
+plot(reg_summary$cp, xlab = " Number of Variables ", ylab = "Cp", type = "l")
+
+
+
+
+set.seed(1)
+train <- sample(c(TRUE , FALSE), nrow (Imputed), replace = TRUE)
+test <- (!train)
+
+regit_full <- regsubsets(Diff ~ . , data=Imputed[train,], nvmax=19)
+test.mat <- model.matrix(Diff ~ . , data=Imputed[test,])
+
+val.errors <- rep (NA, 19)
+
+for (i in 1:8){
+  coefi <- coef(regit_full , id = i)
+  pred <- test.mat[, names(coefi)] %*% coefi
+  val.errors[i] <- mean((Imputed$Diff[test] - pred)^2)
+}
+
+
+which.min(val.errors)
+
+
+predict.regsubsets <- function (object , newdata , id, ...) {
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form , newdata)
+  coefi <- coef(object , id = id)
+  xvars <- names(coefi)
+  mat[, xvars] %*% coefi
+}
+
+regfit.best <- regsubsets(Diff ~., data = Imputed , nvmax = 19)
+
+coef(regfit.best , 8)
+
+
+k <- 10
+n <- nrow(temp)
+set.seed(1)
+folds <- sample(rep(1:k, length = n))
+cv.errors <- matrix(NA, k, 19, dimnames = list(NULL , paste(1:19)))
+
+
+for (j in 1:k) {
+  best.fit <- regsubsets(Diff ~ ., data = Imputed[folds != j, ], nvmax = 19)
+  for (i in 1:8) {
+    pred <- predict(best.fit , Imputed[folds == j, ], id = i)
+    cv.errors[j, i] <- mean((Imputed$Diff[folds == j] - pred)^2)
+  }
+}
+
+mean.cv.errors <- apply(cv.errors , 2, mean)
+
+sqrt(mean.cv.errors)
+
+plot(mean.cv.errors , type = "b")
+
+data.frame(mean.cv.errors) %>% mutate(N=row_number()) %>%
+  ggplot(aes(N, mean.cv.errors)) +
+  geom_point(size=3, alpha=1, shape=4) +
+  geom_line(size=2, alpha=0.3, colour="deepskyblue4") +
+  theme_minimal() +
+  xlab("\n Number of Predictors") + ylab("10-fold cross-validation error \n")
+
+
+summary_best <- summary(regfit.best)
+
+summary_best
+
+plot(summary_best$adjr2 , xlab = " Number of Variables ", ylab = " Adjusted RSq ", type = "l")
+
+plot(summary_best$bic , xlab = " Number of Variables ", ylab = "BIC ", type = "l")
+
+data.frame(summary_best$bic) %>%
+   mutate(N=row_number()) %>%
+  ggplot(aes(N, summary_best.bic)) +
+  geom_point(size=3, alpha=1, shape=4) +
+  geom_line(size=2, alpha=0.3, colour="firebrick") +
+  theme_minimal() +
+  xlab("\n Number of Predictors") + ylab("Bayesian information criterion (BIC) \n")
+  
+
+Best_Subset_Predictors <- fread("Processed_data/Best_Subset_Preds.csv")
+Best_Subset_Predictors[is.na(Best_Subset_Predictors)] <- 0
+
+Best_Subset_Predictors %>% gather(Var, Pres, `Age at Surgery`:`Age at Onset`) %>%
+  mutate(Pres=ifelse(Pres==1, "Yes", "No")) %>%
+  rename("Predictor_Included"="Pres") %>%
+  mutate(Predictor_Included=as.factor(Predictor_Included)) %>%
+  ggplot(aes(x=vars , y=Var, fill = Predictor_Included)) + 
+  geom_tile(color = "white", size = 0.1) + 
+  scale_fill_manual( values= c("snow", "deepskyblue4") ) +
+  #scale_x_discrete(expand=c(0,0)) + 
+  scale_y_discrete(expand=c(0,0)) + 
+  coord_equal() + 
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(min(Best_Subset_Predictors$vars),max(Best_Subset_Predictors$vars),by=1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  xlab("\n Number of Predictors") +ylab("Predictor Included (yes/no) \n")
+
+
+
+
+# ------------------------
+
+
