@@ -3977,6 +3977,11 @@ names(Asymmetry_Pre_vs_Post)
 # summary(lm(Diff ~ AgeOnset, data=Asymmetry_Pre_vs_Post)) β = 0.05562        , p = 0.0169 
 # summary(lm(Diff ~ HOEHN_YAHR_OFF, data=Asymmetry_Pre_vs_Post)) β = 0.4904             , p = 0.0206  
 
+summary(lm(Diff ~ AgeSurgery , data=Asymmetry_Pre_vs_Post))
+summary(lm(Diff ~ AgeOnset, data=Asymmetry_Pre_vs_Post))
+summary(lm(Diff ~ UPDRSII, data=Asymmetry_Pre_vs_Post))
+
+
 Asymmetry_Pre_vs_Post_2 <- Asymmetry_Pre_vs_Post %>% drop_na() %>% select(-SUBJID)
 Asymmetry_Pre_vs_Post_2 <- Asymmetry_Pre_vs_Post_2 %>% sample_n(500, replace=T)
 
@@ -4027,6 +4032,10 @@ regit_full <- regsubsets(Diff ~ . , data=Imputed, nvmax=19)
 
 summary(regit_full)
 
+names(regit_full)
+
+regit_full$rss
+
 reg_summary <- summary(regit_full)
 
 names(reg_summary)
@@ -4070,11 +4079,14 @@ predict.regsubsets <- function (object , newdata , id, ...) {
 
 regfit.best <- regsubsets(Diff ~., data = Imputed , nvmax = 19)
 
-coef(regfit.best , 8)
+
+
+
+coef(regfit.best , 5)
 
 
 k <- 10
-n <- nrow(temp)
+n <- nrow(Imputed)
 set.seed(1)
 folds <- sample(rep(1:k, length = n))
 cv.errors <- matrix(NA, k, 19, dimnames = list(NULL , paste(1:19)))
@@ -4139,7 +4151,1106 @@ Best_Subset_Predictors %>% gather(Var, Pres, `Age at Surgery`:`Age at Onset`) %>
 
 
 
+Imputed %>% select(Diff, AgeSurgery, AgeOnset, UPDRSII) %>%
+  gather(Var, value, AgeSurgery:UPDRSII) %>%
+  ggplot(aes(value, Diff, colour=Var, fill=Var))+
+  geom_smooth(method="gam") +
+  theme_minimal() +
+  ylab("Pre-to-Post surgery \n (OFFOFF to ONON) \n Asymmetry change \n") + 
+  xlab("\n Value \n (Age/UPDRS II) \n") +
+  scale_fill_manual(values=c("#E9EDC9", "#B5838D", "#0081A7")) +
+  scale_colour_manual(values=c("#E9EDC9", "#B5838D", "#0081A7" )) 
+
 
 # ------------------------
 
 
+
+# COMMENTS / FEEDBACK CO-AUTHORS -------------------
+# -------------------
+# Patients worst side vs side that benefits the most ? ------------------------------
+
+sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
+
+#  [1] "DEMOGRAPHIE "             "FACTEURSDERISQUE "        "ATCD_MED_CHIR"           
+#  [4] "SOCIAL "                  "PDQ39-CGIS-SCOPA"         "PGI"                     
+#  [7] "UPDRS II"                 "UPDRSIII_TOTAUX"          "UPDRSIII_COMPLET_V0_V1"  
+# [10] "UPDRSI_II_IV"             "Hoehn&Yarh-S&E"           "EVA_FNM_V0_V1"           
+# [13] "HAM-D"                    "HAM-A"                    "TCI_TCSP_V0"             
+# [16] "Hallu_Miami"              "MoCA V0"                  "MoCA V1"                 
+# [19] "Clox"                     "Boston_Fluence"           "PEROP_COMPLPEROP"        
+# [22] "FREQUENCE_V0"             "FREQUENCE_V1"             "EVENEMENTSINDESIRABLES"  
+# [25] "CONSO_SPE"                "PSYCHOTROPES"             "AUTRE_PARKINSON"         
+# [28] "MEDICAMENTS dans Rapport" "DATES_DE_VISITES "
+
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+# Items 3.3–3.8 and 3.15–3.17
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+# Pre OP OFF
+
+OFF_before <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names) %>%
+  filter(!grepl("1$", df_names))
+
+toString(as.list(OFF_before))
+
+match <- c("OFF_3.15_Left", "OFF_3.15_Right_", "OFF_3.16_Left", "OFF_3.16_Right", "OFF_3.17_Inf_Left_", 
+  "OFF_3.17_Inf_Right", "OFF_3.17_Sup_Left_", "OFF_3.17_Sup_Right", "OFF_3.3_Inf_Left", "OFF_3.3_Inf_Right", 
+  "OFF_3.3_S_Left", "OFF_3.3_S_Right", "OFF_3.4_Left_", "OFF_3.4_Right_", "OFF_3.5_Left_", "OFF_3.5_Right_", 
+  "OFF_3.6_Left_", "OFF_3.6_Right_", "OFF_3.7_Left", "OFF_3.7_Right_", "OFF_3.8_Left", "OFF_3.8_Right_")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before <- OFF_before[-1,]
+
+names(OFF_before)
+
+OFF_before <- data.frame(OFF_before %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(OFF_before)
+ 
+OFF_before <- data.frame(OFF_before) %>% mutate_each(as.numeric, OFF_3.3_S_Right:OFF_3.17_Inf_Left_)
+
+dim_desc(OFF_before) # "[802 x 23]"  -> 18446
+sum(is.na(OFF_before))# 39  0.00211428   0.2%
+drop_na(OFF_before) # 7 pats
+
+Imputed <- imputePCA(OFF_before[,-1],ncp=2, scale = T)
+
+OFF_before <- OFF_before %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+sum(is.na(OFF_before))
+
+sum(OFF_before<0)
+
+OFF_before <- data.frame(OFF_before) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>%  mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(OFF_before) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+
+
+# Post OP ON OFF
+
+
+ONOFF_After <- data.frame(df_names) %>%
+  filter(grepl("^ONOFF", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names) 
+
+toString(as.list(ONOFF_After))
+
+match <- c("ONOFF_3.15_Left", "ONOFF_3.15_Right_", "ONOFF_3.16_Left", "ONOFF_3.16_Right", "ONOFF_3.17_Inf_Left_", 
+           "ONOFF_3.17_Inf_Right", "ONOFF_3.17_Sup_Left_", "ONOFF_3.17_Sup_Right", "ONOFF_3.3_Inf_Left", 
+           "ONOFF_3.3_Inf_Right", "ONOFF_3.3_S_Left", "ONOFF_3.3_S_Right", "ONOFF_3.4_Left_", "ONOFF_3.4_Right_",
+           "ONOFF_3.5_Left_", "ONOFF_3.5_Right_", "ONOFF_3.6_Left_", "ONOFF_3.6_Right_", "ONOFF_3.7_Left", 
+           "ONOFF_3.7_Right_", "ONOFF_3.8_Left", "ONOFF_3.8_Right_")
+           
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONOFF_After <- ONOFF_After[-1,]
+
+names(ONOFF_After)
+
+# 291 patients had no data in the ON OFF post-OP whatsoever
+
+ONOFF_After <- data.frame(ONOFF_After %>% gather(Var, Value, ONOFF_3.3_S_Right:ONOFF_3.17_Inf_Left_) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(ONOFF_After)
+ 
+ONOFF_After <- data.frame(ONOFF_After) %>% mutate_each(as.numeric, ONOFF_3.3_S_Right:ONOFF_3.17_Inf_Left_)
+
+dim_desc(ONOFF_After) # "[545 x 23]"  -> 12535
+sum(is.na(ONOFF_After))# 143  0.01140806   0.1%
+drop_na(ONOFF_After) # 11 pats
+
+Imputed <- imputePCA(ONOFF_After[,-1],ncp=2, scale = T)
+
+ONOFF_After <- ONOFF_After %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+ONOFF_After <- data.frame(ONOFF_After) %>% drop_na() %>% gather(Var, Value, ONOFF_3.3_S_Right:ONOFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(ONOFF_After) %>% drop_na() %>% gather(Var, Value, ONOFF_3.3_S_Right:ONOFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+# Post OP OFF ON
+
+OFFON_After <- data.frame(df_names) %>%
+  filter(grepl("^OFFON", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names) 
+
+toString(as.list(OFFON_After))
+
+match <- c("OFFON_3.15_Left", "OFFON_3.15_Right_", "OFFON_3.16_Left", "OFFON_3.16_Right", 
+           "OFFON_3.17_Inf_Left_", "OFFON_3.17_Inf_Right", "OFFON_3.17_Sup_Left_",
+           "OFFON_3.17_Sup_Right", "OFFON_3.3_Inf_Left", "OFFON_3.3_Inf_Right",
+           "OFFON_3.3_S_Left", "OFFON_3.3_S_Right", "OFFON_3.4_Left_", "OFFON_3.4_Right_", 
+           "OFFON_3.5_Left_", "OFFON_3.5_Right_", "OFFON_3.6_Left_", 
+           "OFFON_3.6_Right_", "OFFON_3.7_Left", "OFFON_3.7_Right_", "OFFON_3.8_Left", "OFFON_3.8_Right_")
+           
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFON_After <- OFFON_After[-1,]
+
+names(OFFON_After)
+
+# 296 patients had no data in the ON OFF post-OP whatsoever
+
+OFFON_After <- data.frame(OFFON_After %>% gather(Var, Value, OFFON_3.3_S_Right:OFFON_3.17_Inf_Left_) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(OFFON_After)
+ 
+OFFON_After <- data.frame(OFFON_After) %>% mutate_each(as.numeric, OFFON_3.3_S_Right:OFFON_3.17_Inf_Left_)
+
+dim_desc(OFFON_After) # "[539 x 23]"  -> 12397
+sum(is.na(OFFON_After))# 280  0.02258611   0.2%
+drop_na(OFFON_After) # 17 pats
+
+Imputed <- imputePCA(OFFON_After[,-1],ncp=2, scale = T)
+
+OFFON_After <- OFFON_After %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+sum(OFFON_After<0)
+OFFON_After[OFFON_After<0] <- 0
+sum(OFFON_After<0)
+
+OFFON_After <- data.frame(OFFON_After) %>% drop_na() %>% gather(Var, Value, OFFON_3.3_S_Right:OFFON_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(OFFON_After) %>% drop_na() %>% gather(Var, Value, OFFON_3.3_S_Right:OFFON_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+
+# Post OP ON ON
+
+ONON_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^ON", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names)  %>%
+  filter(!grepl("OFF", df_names)) 
+
+
+toString(as.list(ONON_After))
+
+match <- c("ON_3.15_Left6", "ON_3.15_Right_6", "ON_3.16_Left6", "ON_3.16_Right6", 
+           "ON_3.17_Inf_Left_6", "ON_3.17_Inf_Right6", "ON_3.17_Sup_Left_6", 
+           "ON_3.17_Sup_Right6", "ON_3.3_Inf_Left", "ON_3.3_Inf_Right", "ON_3.3_S_Left", 
+           "ON_3.3_S_Right", "ON_3.4_Left_", "ON_3.4_Right_", "ON_3.5_Left_", "ON_3.5_Right_", 
+           "ON_3.6_Left_", "ON_3.6_Right_", "ON_3.7_Left", "ON_3.7_Right_", "ON_3.8_Left6", "ON_3.8_Right_6")
+           
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONON_After <- ONON_After[-1,]
+
+names(ONON_After)
+
+# 292 patients had no data in the ON OFF post-OP whatsoever
+
+ONON_After <- data.frame(ONON_After %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(ONON_After)
+ 
+ONON_After <- data.frame(ONON_After) %>% mutate_each(as.numeric, ON_3.3_S_Right:ON_3.17_Inf_Left_6)
+
+dim_desc(ONON_After) # "[543 x 23]"  -> 12489
+sum(is.na(ONON_After))# 189  0.01513332   0.15%
+drop_na(ONON_After) # 14 pats
+
+Imputed <- imputePCA(ONON_After[,-1],ncp=2, scale = T)
+
+ONON_After <- ONON_After %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+
+sum(ONON_After<0)
+ONON_After[ONON_After<0] <- 0
+sum(ONON_After<0)
+
+ONON_After <- data.frame(ONON_After) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(ONON_After) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+
+
+# Post OP OFF OFF
+
+
+OFFOFF_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^OFF", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names)  %>%
+  filter(!grepl("ON", df_names)) 
+
+
+toString(as.list(OFFOFF_After))
+
+match <- c("OFF_3.15_Left1", "OFF_3.15_Right_1", "OFF_3.16_Left1", "OFF_3.16_Right1", "OFF_3.17_Inf_Left_1",
+           "OFF_3.17_Inf_Right1", "OFF_3.17_Sup_Left_1", "OFF_3.17_Sup_Right1", "OFF_3.3_Inf_Left1",
+           "OFF_3.3_Inf_Right1", "OFF_3.3_S_Left1", "OFF_3.3_S_Right1", "OFF_3.4_Left_1", "OFF_3.4_Right_1", 
+           "OFF_3.5_Left_1", "OFF_3.5_Right_1", "OFF_3.6_Left_1", "OFF_3.6_Right_1", "OFF_3.7_Left1", 
+           "OFF_3.7_Right_1", "OFF_3.8_Left1", "OFF_3.8_Right_1")
+           
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFOFF_After <- OFFOFF_After[-1,]
+
+names(OFFOFF_After)
+
+# 292 patients had no data in the OFF OFF post-OP whatsoever
+
+OFFOFF_After <- data.frame(OFFOFF_After %>% gather(Var, Value, OFF_3.3_S_Right1:OFF_3.17_Inf_Left_1) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(OFFOFF_After)
+ 
+OFFOFF_After <- data.frame(OFFOFF_After) %>% mutate_each(as.numeric, OFF_3.3_S_Right1:OFF_3.17_Inf_Left_1)
+
+dim_desc(OFFOFF_After) # "[543 x 23]"  -> 12489
+sum(is.na(OFFOFF_After))# 165  0.01321163   
+drop_na(OFFOFF_After) # 12 pats
+
+Imputed <- imputePCA(OFFOFF_After[,-1],ncp=2, scale = T)
+
+OFFOFF_After <- OFFOFF_After %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+
+OFFOFF_After <- data.frame(OFFOFF_After) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right1:OFF_3.17_Inf_Left_1) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(OFFOFF_After) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right1:OFF_3.17_Inf_Left_1) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+
+OFF_before <- OFF_before %>% mutate(Worst_OFF_before=ifelse(Right>Left, "Right", ifelse(Left>Right, "Left", "Equal"))) 
+names(OFF_before)[2] <- "Left_OFF_Before" ; names(OFF_before)[3] <- "Right_OFF_Before"
+
+OFFOFF_After <- OFFOFF_After %>% mutate(Worst_OFFOFF_After=ifelse(Right>Left, "Right", ifelse(Left>Right, "Left", "Equal"))) 
+names(OFFOFF_After)[2] <- "Left_OFF_After" ; names(OFFOFF_After)[3] <- "Right_OFF_After"
+
+OFFON_After <- OFFON_After %>% mutate(Worst_OFFON_After=ifelse(Right>Left, "Right", ifelse(Left>Right, "Left", "Equal"))) 
+names(OFFON_After)[2] <- "Left_OFFON_After" ; names(OFFON_After)[3] <- "Right_OFFON_After"
+
+ONOFF_After <- ONOFF_After %>% mutate(Worst_ONOFF_After=ifelse(Right>Left, "Right", ifelse(Left>Right, "Left", "Equal"))) 
+names(ONOFF_After)[2] <- "Left_ONOFF_After" ; names(ONOFF_After)[3] <- "Right_ONOFF_After"
+
+ONON_After <- ONON_After %>% mutate(Worst_ONON_After=ifelse(Right>Left, "Right", ifelse(Left>Right, "Left", "Equal"))) 
+names(ONON_After)[2] <- "Left_ONON_After" ; names(ONON_After)[3] <- "Right_ONON_After"
+
+
+OFF_before %>% inner_join(ONOFF_After) %>% mutate(Change_Left=Left_OFF_Before-Left_ONOFF_After) %>%
+  mutate(Change_Right=Right_OFF_Before-Right_ONOFF_After) %>% select(-c(Left_OFF_Before, Right_OFF_Before, Left_ONOFF_After, Right_ONOFF_After)) %>%
+  mutate(Highest_benefit=ifelse(Change_Left>Change_Right, "Left",
+                                ifelse(Change_Right>Change_Left, "Right", "Equal"))) %>%
+  group_by(Worst_OFF_before, Highest_benefit) %>% count() %>%
+  spread(key=Highest_benefit, value=n)
+
+#   Worst_OFF_before Equal  Left Right
+# 1 Equal                4    11    16
+# 2 Left                16   208    67
+# 3 Right               13    30   178
+
+OFF_before %>% inner_join(ONON_After) %>% mutate(Change_Left=Left_OFF_Before-Left_ONON_After) %>%
+  mutate(Change_Right=Right_OFF_Before-Right_ONON_After) %>% select(-c(Left_OFF_Before, Right_OFF_Before, Left_ONON_After, Right_ONON_After)) %>%
+  mutate(Highest_benefit=ifelse(Change_Left>Change_Right, "Left",
+                                ifelse(Change_Right>Change_Left, "Right", "Equal"))) %>%
+  group_by(Worst_OFF_before, Highest_benefit) %>% count() %>%
+  spread(key=Highest_benefit, value=n)
+
+#   Worst_OFF_before Equal  Left Right
+# 1 Equal                7     7    18
+# 2 Left                24   230    35
+# 3 Right                9    10   201
+
+
+OFF_before %>% inner_join(OFFON_After) %>% mutate(Change_Left=Left_OFF_Before-Left_OFFON_After) %>%
+  mutate(Change_Right=Right_OFF_Before-Right_OFFON_After) %>% select(-c(Left_OFF_Before, Right_OFF_Before, Left_OFFON_After, Right_OFFON_After)) %>%
+  mutate(Highest_benefit=ifelse(Change_Left>Change_Right, "Left",
+                                ifelse(Change_Right>Change_Left, "Right", "Equal"))) %>%
+  group_by(Worst_OFF_before, Highest_benefit) %>% count() %>%
+   spread(key=Highest_benefit, value=n)
+
+#   Worst_OFF_before Equal  Left Right
+#   <chr>            <int> <int> <int>
+# 1 Equal                3    11    17
+# 2 Left                23   201    62
+# 3 Right                8    21   191
+
+
+# ---------------------------------------------
+# Phenotype and asymmetry ------------------
+
+# ON ON  post-op
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+ON_after_ALL <- data.frame(df_names) %>%
+  filter(grepl("^ON", df_names)) %>%
+    filter(grepl("1$", df_names)) %>%
+    filter(grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)|
+           grepl("3.18", df_names)
+           ) %>%
+  arrange(df_names) 
+
+toString(as.list(ON_after_ALL))
+
+match <- c("ON_3.10_1", "ON_3.11_1", "ON_3.12_1", "ON_3.15_Left1", "ON_3.15_Right_1", "ON_3.16_Left1", 
+           "ON_3.16_Right1", "ON_3.17_Inf_Left_1", "ON_3.17_Inf_Right1", "ON_3.17_Sup_Left_1", 
+           "ON_3.17_Sup_Right1", "ON_3.17_lip_1", "ON_3.18_1")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ON_after_ALL <- UPDRSIII_COMPLET_V0_V1[which_names]
+ON_after_ALL <- ON_after_ALL[-1,]
+
+names(ON_after_ALL)
+
+ON_after_ALL <- data.frame(ON_after_ALL %>% gather(Var, Value, ON_3.10_1:ON_3.18_1  ) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<13)) %>% select(SUBJID) %>%
+  inner_join(ON_after_ALL)
+ 
+ON_after_ALL <- data.frame(ON_after_ALL) %>% mutate_each(as.numeric, ON_3.10_1:ON_3.18_1)
+sum(is.na(ON_after_ALL))
+
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% filter(VISIT == 1) %>% select(SUBJID, MDS2_10ON, MDS2_12ON, MDS2_13ON)
+sum(is.na(UPDRSI_II))
+
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(ON_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 0.60047
+# 3[1] 0.15603
+# 4[1] 0.48821
+# 5[1] 0.1844
+# 6[1] 0.17021
+# 7[1] 0.08274
+# 8[1] 0.11111
+# 9[1] 0.01891
+# 10[1] 0.17021
+# 11[1] 0.17967
+# 12[1] 0.07565
+# 13[1] 0.09693
+# 14[1] 0.45154
+
+dim_desc(ON_after_ALL) 
+sum(is.na(ON_after_ALL)) 
+drop_na(ON_after_ALL) 
+
+Imputed <- imputePCA(ON_after_ALL[,-1],ncp=2, scale = T)
+
+ON_after_ALL <- ON_after_ALL %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(ON_after_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 0.60044
+# 3[1] 0.15612
+# 4[1] 0.48807
+# 5[1] 0.18441
+# 6[1] 0.17019
+# 7[1] 0.08273
+# 8[1] 0.11108
+# 9[1] 0.0189
+# 10[1] 0.17019
+# 11[1] 0.17961
+# 12[1] 0.07564
+# 13[1] 0.09691
+# 14[1] 0.45147
+
+sum(is.na(ON_after_ALL))
+
+sum(ON_after_ALL<0)
+
+PIGD_TD <- ON_after_ALL %>% inner_join(UPDRSI_II)
+names(PIGD_TD)
+
+PIGD_TD <- PIGD_TD %>% 
+  mutate(PIGD_Score = MDS2_12ON+MDS2_13ON+ON_3.10_1+ON_3.11_1+ON_3.12_1) %>%
+  mutate(TD_Score = ON_3.15_Right_1+ON_3.15_Left1+ON_3.16_Right1+ON_3.16_Left1+
+           ON_3.17_lip_1+ON_3.17_Sup_Right1+ON_3.17_Sup_Left_1+ON_3.17_Inf_Right1+ON_3.17_Inf_Left_1+ON_3.18_1) %>%
+  select(SUBJID, PIGD_Score, TD_Score) %>%
+  mutate(PIGD_Score=ifelse(PIGD_Score<0.1,PIGD_Score+0.1, PIGD_Score)) %>%
+  mutate(TD_Score=ifelse(TD_Score<0.1,TD_Score+0.1, TD_Score)) %>%
+  mutate(PIGD_Score=PIGD_Score/5, TD_Score=TD_Score/11) %>%
+  mutate(Type=TD_Score/PIGD_Score)
+
+PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet"))) %>%
+  group_by(Pheno) %>% count()
+
+#   Pheno     n
+# 1 Indet     3
+# 2 PIGD     85
+# 3 TD       11
+ 
+# 0.03030303
+# 0.8585859
+# 0.1111111
+
+
+PIGD_TD <- PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet")))
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Post_OP_ONON)
+
+PIGD_TD <- Asymmetry_Pre_vs_Post %>% inner_join(PIGD_TD)
+
+PIGD_TD %>% group_by(Pheno) %>% summarise(n=mean(Diff_Post_OP_ONON))
+
+# 1 Indet  2.67
+# 2 PIGD   2.27
+# 3 TD     2.21
+
+PIGD_TD <- PIGD_TD %>% select(SUBJID, Pheno, Diff_Post_OP_ONON)
+
+kruskal.test(Diff_Post_OP_ONON ~ Pheno, data = PIGD_TD)
+
+# 	Kruskal-Wallis rank sum test
+# 
+# data:  Diff_Post_OP_ONON by Pheno
+# Kruskal-Wallis chi-squared = 0.4379, df = 2, p-value = 0.8034
+
+
+pairwise.wilcox.test(PIGD_TD$Diff_Post_OP_ONON, PIGD_TD$Pheno,
+                 p.adjust.method = "bonferroni")
+
+# 	Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
+# 
+# data:  PIGD_TD$Diff_Post_OP_ONON and PIGD_TD$Pheno 
+# 
+#      Indet PIGD
+# PIGD 1     -   
+# TD   1     1   
+# 
+# P value adjustment method: bonferroni 
+
+PIGD_TD_ONON_After <- PIGD_TD
+
+
+
+# OFF OF Pre-op 
+
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+OFF_before_ALL <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+    filter(!grepl("1$", df_names)) %>%
+    filter(grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)|
+           grepl("3.18", df_names)
+           ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFF_before_ALL))
+
+match <- c("OFF_3.10_", "OFF_3.11_", "OFF_3.12_", "OFF_3.15_Left", "OFF_3.15_Right_", 
+  "OFF_3.16_Left", "OFF_3.16_Right", "OFF_3.17_Inf_Left_", "OFF_3.17_Inf_Right", "OFF_3.17_Sup_Left_", 
+  "OFF_3.17_Sup_Right", "OFF_3.17_lip_", "OFF_3.18_")
+
+match <- append("SUBJID", match)
+           
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before_ALL <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before_ALL <- OFF_before_ALL[-1,]
+
+names(OFF_before_ALL)
+
+OFF_before_ALL <- data.frame(OFF_before_ALL %>% gather(Var, Value, OFF_3.10_:OFF_3.18_ ) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<13)) %>% select(SUBJID) %>%
+  inner_join(OFF_before_ALL)
+ 
+OFF_before_ALL <- data.frame(OFF_before_ALL) %>% mutate_each(as.numeric, OFF_3.10_:OFF_3.18_)
+sum(is.na(OFF_before_ALL))
+
+UPDRSI_II <- fread("Processed_data/UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% filter(VISIT == 0) %>% select(SUBJID, MDS2_10OFF, MDS2_12OFF, MDS2_13OFF)
+sum(is.na(UPDRSI_II))
+
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(OFF_before_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 1.62921
+# 3[1] 0.81054
+# 4[1] 1.1225
+# 5[1] 0.56696
+# 6[1] 0.54261
+# 7[1] 0.29036
+# 8[1] 0.3584
+# 9[1] 0.14518
+# 10[1] 0.70213
+# 11[1] 0.67459
+# 12[1] 0.43304
+# 13[1] 0.40426
+# 14[1] 1.50877
+
+dim_desc(OFF_before_ALL) 
+sum(is.na(OFF_before_ALL)) 
+drop_na(OFF_before_ALL) 
+
+Imputed <- imputePCA(OFF_before_ALL[,-1],ncp=2, scale = T)
+
+OFF_before_ALL <- OFF_before_ALL %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:14){
+  cat(i)
+  print(round(mean(OFF_before_ALL[,i], na.rm = T),5))
+}
+
+# 2[1] 1.62921
+# 3[1] 0.81712
+# 4[1] 1.12381
+# 5[1] 0.56667
+# 6[1] 0.5443
+# 7[1] 0.29022
+# 8[1] 0.3596
+# 9[1] 0.14518
+# 10[1] 0.70174
+# 11[1] 0.6743
+# 12[1] 0.43295
+# 13[1] 0.40431
+# 14[1] 1.50843
+
+sum(is.na(OFF_before_ALL))
+
+sum(OFF_before_ALL<0)
+
+PIGD_TD <- OFF_before_ALL %>% inner_join(UPDRSI_II)
+names(PIGD_TD)
+
+PIGD_TD <- PIGD_TD %>% 
+  mutate(PIGD_Score = MDS2_12OFF+MDS2_13OFF+OFF_3.10_+OFF_3.11_+OFF_3.12_ ) %>%
+  mutate(TD_Score = OFF_3.15_Right_+OFF_3.15_Left+OFF_3.16_Right+OFF_3.16_Left+
+           OFF_3.17_lip_+OFF_3.17_Sup_Right+OFF_3.17_Sup_Left_+OFF_3.17_Inf_Right+OFF_3.17_Inf_Left_+OFF_3.18_) %>%
+  select(SUBJID, PIGD_Score, TD_Score) %>%
+  mutate(PIGD_Score=PIGD_Score/5, TD_Score=TD_Score/11) %>%
+  mutate(Type=TD_Score/PIGD_Score)
+
+PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet"))) %>%
+  group_by(Pheno) %>% count()
+
+#   Pheno     n
+#   <chr> <int>
+# 1 Indet    21
+# 2 PIGD    262
+# 3 TD       69
+# > 69/(21+262+69)
+# [1] 0.1960227
+# > 262/(21+262+69)
+# [1] 0.7443182
+# > 21/(21+262+69)
+# [1] 0.05965909
+
+PIGD_TD <- PIGD_TD %>% mutate(Pheno = ifelse(Type>=1.15, "TD", ifelse(Type<=0.9, "PIGD", "Indet")))
+
+Asymmetry_Pre_vs_Post <- fread("Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>% select(SUBJID, Diff_Pre_OP)
+
+PIGD_TD <- Asymmetry_Pre_vs_Post %>% inner_join(PIGD_TD)
+
+PIGD_TD %>% group_by(Pheno) %>% summarise(n=mean(Diff_Pre_OP))
+
+#   Pheno     n
+# 1 Indet  6.56
+# 2 PIGD   4.58
+# 3 TD     7.23
+
+PIGD_TD <- PIGD_TD %>% select(SUBJID, Pheno, Diff_Pre_OP)
+
+kruskal.test(Diff_Pre_OP ~ Pheno, data = PIGD_TD)
+
+# 	Kruskal-Wallis rank sum test
+# 
+# data:  Diff_Pre_OP by Pheno
+# Kruskal-Wallis chi-squared = 13.638, df = 2, p-value = 0.001093
+
+pairwise.wilcox.test(PIGD_TD$Diff_Pre_OP, PIGD_TD$Pheno,
+                 p.adjust.method = "bonferroni")
+
+# 	Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
+# 
+# data:  PIGD_TD$Diff_Pre_OP and PIGD_TD$Pheno 
+# 
+#      Indet  PIGD  
+# PIGD 0.1223 -     
+# TD   1.0000 0.0029
+# 
+# P value adjustment method: bonferroni 
+
+PIGD_TD_OFFOFF_Before <- PIGD_TD
+
+names(PIGD_TD_OFFOFF_Before)[2] <- "Pheno_OFF_Before"
+names(PIGD_TD_ONON_After)[2] <- "Pheno_ON_After"
+
+PIGD_TD_OFFOFF_Before %>% inner_join(PIGD_TD_ONON_After) %>% mutate(Change=Diff_Pre_OP-Diff_Post_OP_ONON) %>%
+  group_by(Pheno_OFF_Before) %>% summarise(n=mean(Change))
+
+
+# Asymmetry in Phenotypes in OFF state to do 
+
+# -------------------------
+# Pre OP OFF vs Pre OP ON -------------------------------------------------------------------------------------
+
+
+sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
+
+#  [1] "DEMOGRAPHIE "             "FACTEURSDERISQUE "        "ATCD_MED_CHIR"           
+#  [4] "SOCIAL "                  "PDQ39-CGIS-SCOPA"         "PGI"                     
+#  [7] "UPDRS II"                 "UPDRSIII_TOTAUX"          "UPDRSIII_COMPLET_V0_V1"  
+# [10] "UPDRSI_II_IV"             "Hoehn&Yarh-S&E"           "EVA_FNM_V0_V1"           
+# [13] "HAM-D"                    "HAM-A"                    "TCI_TCSP_V0"             
+# [16] "Hallu_Miami"              "MoCA V0"                  "MoCA V1"                 
+# [19] "Clox"                     "Boston_Fluence"           "PEROP_COMPLPEROP"        
+# [22] "FREQUENCE_V0"             "FREQUENCE_V1"             "EVENEMENTSINDESIRABLES"  
+# [25] "CONSO_SPE"                "PSYCHOTROPES"             "AUTRE_PARKINSON"         
+# [28] "MEDICAMENTS dans Rapport" "DATES_DE_VISITES "
+
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+# Items 3.3–3.8 and 3.15–3.17
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+
+OFF_before <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+    filter(grepl("3.3", df_names)|
+           grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)|
+           grepl("3.15", df_names)|
+           grepl("3.16", df_names)|
+           grepl("3.17", df_names)
+           ) %>%
+  filter(grepl("Right", df_names)|grepl("right", df_names)|grepl("left", df_names)|grepl("Left", df_names)) %>%
+  arrange(df_names) %>%
+  filter(!grepl("1$", df_names))
+
+toString(as.list(OFF_before))
+
+match <- c("OFF_3.15_Left", "OFF_3.15_Right_", "OFF_3.16_Left", "OFF_3.16_Right", "OFF_3.17_Inf_Left_", 
+  "OFF_3.17_Inf_Right", "OFF_3.17_Sup_Left_", "OFF_3.17_Sup_Right", "OFF_3.3_Inf_Left", "OFF_3.3_Inf_Right", 
+  "OFF_3.3_S_Left", "OFF_3.3_S_Right", "OFF_3.4_Left_", "OFF_3.4_Right_", "OFF_3.5_Left_", "OFF_3.5_Right_", 
+  "OFF_3.6_Left_", "OFF_3.6_Right_", "OFF_3.7_Left", "OFF_3.7_Right_", "OFF_3.8_Left", "OFF_3.8_Right_")
+
+length(match)
+
+match <- append("SUBJID", match)
+           
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before <- OFF_before[-1,]
+
+names(OFF_before)
+
+# 33 patients had no data in the OFF pre-OP whatsoever
+
+OFF_before <- data.frame(OFF_before %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(OFF_before)
+ 
+
+OFF_before <- data.frame(OFF_before) %>% mutate_each(as.numeric, OFF_3.3_S_Right:OFF_3.17_Inf_Left_)
+
+
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(OFF_before[,i], na.rm = T),5))
+}
+
+# 2[1] 1.63466
+# 3[1] 1.66334
+# 4[1] 1.40773
+# 5[1] 1.43641
+# 6[1] 1.9414
+# 7[1] 2.09613
+# 8[1] 1.70948
+# 9[1] 1.7965
+# 10[1] 1.73317
+# 11[1] 1.85144
+# 12[1] 1.96746
+# 13[1] 2.16416
+# 14[1] 1.48065
+# 15[1] 1.64375
+# 16[1] 0.56696
+# 17[1] 0.54261
+# 18[1] 0.29036
+# 19[1] 0.3584
+# 20[1] 0.70213
+# 21[1] 0.67459
+# 22[1] 0.43304
+# 23[1] 0.40426
+
+
+dim_desc(OFF_before) # "[802 x 23]"  -> 18446
+sum(is.na(OFF_before))# 39  0.00211428   0.2%
+drop_na(OFF_before) # 7 pats
+
+Imputed <- imputePCA(OFF_before[,-1],ncp=2, scale = T)
+
+OFF_before <- OFF_before %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(OFF_before[,i], na.rm = T),5))
+}
+
+# 2[1] 1.63466
+# 3[1] 1.66334
+# 4[1] 1.40773
+# 5[1] 1.43641
+# 6[1] 1.9414
+# 7[1] 2.09742
+# 8[1] 1.70948
+# 9[1] 1.79788
+# 10[1] 1.73317
+# 11[1] 1.85319
+# 12[1] 1.96939
+# 13[1] 2.16682
+# 14[1] 1.483
+# 15[1] 1.64772
+# 16[1] 0.56686
+# 17[1] 0.54515
+# 18[1] 0.29042
+# 19[1] 0.36039
+# 20[1] 0.70203
+# 21[1] 0.67479
+# 22[1] 0.43304
+# 23[1] 0.40461
+
+sum(is.na(OFF_before))
+
+sum(OFF_before<0)
+
+OFF_before <- data.frame(OFF_before) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>%  mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(OFF_before) %>% drop_na() %>% gather(Var, Value, OFF_3.3_S_Right:OFF_3.17_Inf_Left_) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+OFF_before$Diff <- OFF_before$Right - OFF_before$Left
+mean(OFF_before$Diff)
+
+OFF_before %>% ungroup() %>%
+  ggplot(aes(abs(Diff))) +
+  geom_density() +
+  theme_minimal()
+ON_60_before <- data.frame(df_names) %>%
+  filter(df_names %in% c("ON_3.3_Inf_Right60", "ON_3.3_Inf_Left60", "ON_3.3_S_Left60", "ON_3.3_S_Right60",
+                         "ON_3.4_Left_60", "ON_3.4_Right_60", "ON_3.5_Left_60", "ON_3.5_Right_60", 
+                         "ON_3.6_Left_60", "ON_3.6_Right_60", "ON_3.7_Left60", "ON_3.7_Right_60",
+                         "ON_3.8_Right_3", "ON_3.8_Left3", "ON_3.15_Right_3", "ON_3.15_Left3",
+                         "ON_3.16_Right3", "ON_3.16_Left3", "ON_3.17_Sup_Right3", "ON_3.17_Sup_Left_3",
+                         "ON_3.17_Inf_Right3", "ON_3.17_Inf_Left_3")) 
+
+toString(as.list(ON_60_before))
+
+match <- c("ON_3.3_S_Right60", "ON_3.3_S_Left60", "ON_3.3_Inf_Right60", "ON_3.3_Inf_Left60", "ON_3.4_Right_60", 
+  "ON_3.4_Left_60", "ON_3.5_Right_60", "ON_3.5_Left_60", "ON_3.6_Right_60", "ON_3.6_Left_60", "ON_3.7_Right_60", 
+  "ON_3.7_Left60", "ON_3.8_Right_3", "ON_3.8_Left3", "ON_3.15_Right_3", "ON_3.15_Left3", "ON_3.16_Right3", "ON_3.16_Left3",
+  "ON_3.17_Sup_Right3", "ON_3.17_Sup_Left_3", "ON_3.17_Inf_Right3", "ON_3.17_Inf_Left_3")
+
+
+match <- append("SUBJID", match)
+           
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ON_60_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+ON_60_before <- ON_60_before[-1,]
+
+names(ON_60_before)
+
+
+ON_60_before <- data.frame(ON_60_before %>% gather(Var, Value, ON_3.3_S_Right60:ON_3.17_Inf_Left_3) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(ON_60_before)
+ 
+
+ON_60_before <- data.frame(ON_60_before) %>% mutate_each(as.numeric, ON_3.3_S_Right60:ON_3.17_Inf_Left_3)
+
+dim(ON_60_before)
+sum(is.na(ON_60_before))
+
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(ON_60_before[,i], na.rm = T),5))
+}
+
+# 2[1] 0.45
+# 3[1] 0.41034
+# 4[1] 0.35517
+# 5[1] 0.34138
+# 6[1] 0.64372
+# 7[1] 0.75559
+# 8[1] 0.49053
+# 9[1] 0.56627
+# 10[1] 0.41824
+# 11[1] 0.5525
+# 12[1] 0.71848
+# 13[1] 1.00862
+# 14[1] 0.30069
+# 15[1] 0.43299
+# 16[1] 0.11704
+# 17[1] 0.12048
+# 18[1] 0.06368
+# 19[1] 0.09639
+# 20[1] 0.09122
+# 21[1] 0.10825
+# 22[1] 0.03436
+# 23[1] 0.03608
+
+
+
+Imputed <- imputePCA(ON_60_before[,-1],ncp=2, scale = T)
+
+ON_60_before <- ON_60_before %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(ON_60_before[,i], na.rm = T),5))
+}
+
+# 2[1] 0.4494
+# 3[1] 0.40978
+# 4[1] 0.35461
+# 5[1] 0.34083
+# 6[1] 0.64333
+# 7[1] 0.75512
+# 8[1] 0.49021
+# 9[1] 0.56582
+# 10[1] 0.41799
+# 11[1] 0.55212
+# 12[1] 0.71744
+# 13[1] 1.00775
+# 14[1] 0.30068
+# 15[1] 0.43297
+# 16[1] 0.11687
+# 17[1] 0.1203
+# 18[1] 0.06358
+# 19[1] 0.09624
+# 20[1] 0.09102
+# 21[1] 0.10816
+# 22[1] 0.03433
+# 23[1] 0.03605
+
+sum(is.na(ON_60_before))
+
+sum(ON_60_before<0)
+
+ON_60_before <- data.frame(ON_60_before) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right60:ON_3.17_Inf_Left_3) %>%
+  mutate(Value=as.numeric(Value)) %>%  mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(ON_60_before) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right60:ON_3.17_Inf_Left_3) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+ON_60_before$Diff <- ON_60_before$Right - ON_60_before$Left
+
+mean(ON_60_before$Diff)
+
+ON_60_before %>% ungroup() %>%
+  ggplot(aes(abs(Diff))) +
+  geom_density() +
+  theme_minimal()
+
+Asymmetry <- OFF_before %>% select(SUBJID, Diff) %>% rename("Diff_Pre_OP"="Diff") %>%
+  full_join(ON_60_before %>% select(SUBJID, Diff) %>% rename("Diff_Pre_OP_ON"="Diff") ) %>%
+  drop_na() %>% mutate(Diff_Pre_OP=abs(Diff_Pre_OP),  Diff_Pre_OP_ON=abs(Diff_Pre_OP_ON))
+
+sum(Asymmetry<0)
+
+
+mean(Asymmetry$Diff_Pre_OP)  # 5.036503
+mean(Asymmetry$Diff_Pre_OP_ON) # 2.242345   
+
+t.test(Asymmetry$Diff_Pre_OP_ON, Asymmetry$Diff_Pre_OP, paired = TRUE)
+
+	Paired t-test
+
+# data:  Asymmetry$Diff_Pre_OP_ON and Asymmetry$Diff_Pre_OP
+# t = -17.938, df = 612, p-value < 2.2e-16
+# alternative hypothesis: true mean difference is not equal to 0
+# 95 percent confidence interval:
+#  -3.100060 -2.488257
+# sample estimates:
+# mean difference 
+#       -2.794158 
+
+	
+	
+
+Asymmetry %>% 
+  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>=5, ">5", "no"))  %>% 
+  mutate(Diff_Pre_OP_ON   =ifelse(Diff_Pre_OP_ON   >=5, ">5", "no")) %>%
+  group_by(Diff_Pre_OP, Diff_Pre_OP_ON   ) %>% count() %>% ungroup()
+
+#   Diff_Pre_OP Diff_Pre_OP_ON     n
+#   <chr>       <chr>          <int>
+# 1 >5          >5                57
+# 2 >5          no               233
+# 3 no          >5                29
+# 4 no          no               294
+
+
+# (233+57)/(233+57+29+294) # 0.4730832
+# (29+57)/(233+57+29+294) # 0.1402936
+
+temp <- as.matrix(
+  Asymmetry %>% 
+  mutate(Diff_Pre_OP=ifelse(Diff_Pre_OP>5, ">5", "no"))  %>% 
+  mutate(Diff_Pre_OP_ON=ifelse(Diff_Pre_OP_ON>5, ">5", "no")) %>%
+  group_by(Diff_Pre_OP, Diff_Pre_OP_ON) %>% count() %>% ungroup() %>%
+    gather(Timepoint, AsymGroup, Diff_Pre_OP:Diff_Pre_OP_ON) %>%
+    group_by(Timepoint, AsymGroup) %>% summarise(n=sum(n)) %>%
+    spread(key=Timepoint, value=n))
+
+matrix(as.numeric(c(temp[1,2], temp[2,2], temp[1,3], temp[2,3])), nrow=2) 
+
+fisher.test( matrix(as.numeric(c(temp[1,2], temp[2,2], temp[1,3], temp[2,3])), nrow=2)  )
+
+# 	Fisher's Exact Test for Count Data
+# 
+# data:  matrix(as.numeric(c(temp[1, 2], temp[2, 2], temp[1, 3], temp[2, 3])), nrow = 2)
+# p-value < 2.2e-16
+# alternative hypothesis: true odds ratio is not equal to 1
+# 95 percent confidence interval:
+#  4.997486 9.883112
+# sample estimates:
+# odds ratio 
+#   6.978016
+
+
+# --------------------------
