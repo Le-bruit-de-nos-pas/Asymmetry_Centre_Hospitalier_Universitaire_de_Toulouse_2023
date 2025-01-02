@@ -7,8 +7,6 @@ library(leaps)
 library(glmnet)
 
 
-
-
 # Import files ---------------------------------------------------------------------
 
 sheets_list <- excel_sheets(path = "Raw_Database/Asymmetry_DeepBrainStimulation.xlsx")
@@ -719,6 +717,28 @@ Asymmetry_Pre_vs_Post <- OFF_before %>% select(SUBJID, Diff) %>% rename("Diff_Pr
                        Diff_Post_OP_OFFON=abs(Diff_Post_OP_OFFON), Diff_Post_OP_ONON=abs(Diff_Post_OP_ONON),
                        Diff_Post_OP_OFFOFF=abs(Diff_Post_OP_OFFOFF))
 
+
+
+Asymmetry_Pre_vs_Post <- OFF_before %>% mutate(Diff=abs(Diff)/(Left+Right)) %>% select(SUBJID, Diff) %>% rename("Diff_Pre_OP"="Diff") %>%
+  full_join(ONOFF_After %>% mutate(Diff=abs(Diff)/(Left+Right)) %>% select(SUBJID, Diff) %>% rename("Diff_Post_OP_ONOFF"="Diff") ) %>%
+  full_join(OFFON_After %>% mutate(Diff=abs(Diff)/(Left+Right)) %>% select(SUBJID, Diff) %>% rename("Diff_Post_OP_OFFON"="Diff") ) %>%
+  full_join(ONON_After %>% mutate(Diff=abs(Diff)/(Left+Right)) %>% select(SUBJID, Diff) %>% rename("Diff_Post_OP_ONON"="Diff") ) %>%
+  full_join(OFFOFF_After %>% mutate(Diff=abs(Diff)/(Left+Right)) %>% select(SUBJID, Diff) %>% rename("Diff_Post_OP_OFFOFF"="Diff") ) %>%
+  drop_na() %>% mutate(Diff_Pre_OP=abs(Diff_Pre_OP),  Diff_Post_OP_ONOFF=abs(Diff_Post_OP_ONOFF),  
+                       Diff_Post_OP_OFFON=abs(Diff_Post_OP_OFFON), Diff_Post_OP_ONON=abs(Diff_Post_OP_ONON),
+                       Diff_Post_OP_OFFOFF=abs(Diff_Post_OP_OFFOFF))
+
+
+mean(Asymmetry_Pre_vs_Post$Diff_Pre_OP)
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFOFF)
+
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONOFF)
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_OFFON)
+
+mean(Asymmetry_Pre_vs_Post$Diff_Post_OP_ONON)
+
+
+
 sum(Asymmetry_Pre_vs_Post<0)
 
 fwrite(Asymmetry_Pre_vs_Post, "Processed_data/Asymmetry_Pre_vs_Post.txt", sep="\t")
@@ -836,8 +856,8 @@ Asymmetry_Pre_vs_Post %>%
   geom_jitter(width=0.2, height = 0.6, alpha=0.6, show.legend = FALSE) +
   theme_minimal() +
   xlab("\n") + ylab("Absolute R-to-L Difference \n (i.e. Asymmetry) \n") +
-  scale_fill_brewer(palette="PuBu") +
-  scale_colour_brewer(palette="PuBu") +
+  scale_fill_manual(values=c("#8e3f71", "#c65858", "#b0cd99", "#75ba9d", "#443f84")) +
+  scale_colour_manual(values=c("#8e3f71", "#c65858", "#b0cd99", "#75ba9d", "#443f84")) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 
@@ -1146,8 +1166,8 @@ UPDRSI_II %>% gather(item, value, `Pre_OP_[OFF]`:`Post_OP_[ON]`) %>%
   geom_jitter(width=0.2, height = 0.6, alpha=0.6, show.legend = FALSE) +
   theme_minimal() +
   xlab("\n") + ylab("UPDRS II \n") +
-  scale_fill_manual(values=c("#E9EDC9", "#B5838D", "#0081A7", "#0F4C5C")) +
-  scale_colour_manual(values=c("#E9EDC9", "#B5838D", "#0081A7" , "#0F4C5C")) +
+  scale_fill_manual(values=c("#c65858", "#B5838D", "#0081A7", "#0F4C5C")) +
+  scale_colour_manual(values=c("#c65858", "#B5838D", "#0081A7" , "#0F4C5C")) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 
@@ -1203,6 +1223,16 @@ cor.test(temp$Diff, temp$Diff2)
 #        cor 
 # -0.1091339 
   
+cor.test(temp$Diff, temp$Diff2, method="spearman")
+
+# Spearman's rank correlation rho
+# 
+# data:  temp$Diff and temp$Diff2
+# S = 2045810, p-value = 0.1693
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#         rho 
+# -0.09214733 
 
 UPDRSI_II %>% 
   inner_join(Asymmetry_Pre_vs_Post) %>%
@@ -1596,7 +1626,7 @@ PDQ39 %>%
   mutate(VISIT=ifelse(VISIT==0,"Pre_OP", "Post_OP")) %>%
      mutate(VISIT=factor(VISIT, levels=c("Pre_OP" , "Post_OP"))) %>%
   ggplot(aes(feature  , value, colour=VISIT, fill=VISIT )) +
-  geom_boxplot( alpha=0.7, notch = TRUE, notchwidth = 0.3, show.legend = T, outlier.alpha = 0) +
+  geom_boxplot( alpha=0.7, notch = TRUE, notchwidth = 0.3, show.legend = T, outlier.alpha = 0.5) +
   theme_minimal() +
   xlab("\n") + ylab("Score \n") +
   scale_fill_manual(values=c("#B5838D", "#0081A7")) +
@@ -5194,7 +5224,7 @@ sum(Asymmetry<0)
 
 
 mean(Asymmetry$Diff_Pre_OP)  # 5.036503
-mean(Asymmetry$Diff_Pre_OP_ON) # 2.242345   
+sd(Asymmetry$Diff_Pre_OP_ON) # 2.242345   
 
 t.test(Asymmetry$Diff_Pre_OP_ON, Asymmetry$Diff_Pre_OP, paired = TRUE)
 
@@ -5254,3 +5284,822 @@ fisher.test( matrix(as.numeric(c(temp[1,2], temp[2,2], temp[1,3], temp[2,3])), n
 
 
 # --------------------------
+# Sensor positions ----------
+
+FREQUENCE_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "FREQUENCE_V1", skip=0, col_types = "text", trim_ws = TRUE)
+FREQUENCE_V1 <- FREQUENCE_V1 %>% select(SUBJID, PLOTG1, PLOTG2, PLOTG3, PLOTG4, PLOTG5, PLOTD1, PLOTD2, PLOTD3, PLOTD4, PLOTD5)
+FREQUENCE_V1 <- FREQUENCE_V1[-1,]
+
+
+PLOTS_CONTACTS <- FREQUENCE_V1 %>% select(SUBJID, PLOTG1:PLOTG5) %>%
+  gather(PLOT, CONTACT, PLOTG1:PLOTG5) %>%
+  bind_rows(
+    FREQUENCE_V1 %>% select(SUBJID, PLOTD1:PLOTD5) %>%
+      gather(PLOT, CONTACT, PLOTD1:PLOTD5)
+  ) %>% drop_na() %>% arrange(CONTACT)
+
+length(unique(PLOTS_CONTACTS$SUBJID))
+
+unique(PLOTS_CONTACTS$CONTACT)
+
+VTA_asymmetry <- read_xlsx(path="Raw_Database/VTA_asymmetry.xlsx",sheet = "Feuil1", skip=0, col_types = "text", trim_ws = TRUE)
+VTA_asymmetry <- VTA_asymmetry %>% select(ID)
+names(VTA_asymmetry) <- "SUBJID"
+
+
+PLOTS_CONTACTS <- PLOTS_CONTACTS %>% inner_join(VTA_asymmetry)
+
+length(unique(PLOTS_CONTACTS$SUBJID))
+
+unique(PLOTS_CONTACTS$CONTACT)
+
+
+fwrite(PLOTS_CONTACTS, "PLOTS_CONTACTS.csv")
+
+
+# ---------------
+
+library(readxl)
+library(tidyverse)
+library(data.table)
+library(missMDA)
+library(ISLR2)
+library(leaps)
+library(glmnet)
+
+# Year 3 and Year 5 Asymmetry Visits -----------
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+df_names_V0_V1 <- names(UPDRSIII_COMPLET_V0_V1)
+ONON_After_V0_V1 <- data.frame(df_names_V0_V1) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^ON", df_names_V0_V1)) %>%
+    filter(grepl("3.3", df_names_V0_V1)|
+           grepl("3.4", df_names_V0_V1)|
+           grepl("3.5", df_names_V0_V1)|
+           grepl("3.6", df_names_V0_V1)|
+           grepl("3.7", df_names_V0_V1)|
+           grepl("3.8", df_names_V0_V1)|
+           grepl("3.15", df_names_V0_V1)|
+           grepl("3.16", df_names_V0_V1)|
+           grepl("3.17", df_names_V0_V1)
+           ) %>%
+  filter(grepl("Right", df_names_V0_V1)|grepl("right", df_names_V0_V1)|grepl("left", df_names_V0_V1)|grepl("Left", df_names_V0_V1)) %>%
+  arrange(df_names_V0_V1)  %>%
+  filter(!grepl("OFF", df_names_V0_V1)) 
+toString(as.list(ONON_After_V0_V1))
+match_V0_V1 <- c("ON_3.15_Left6", "ON_3.15_Right_6", "ON_3.16_Left6", "ON_3.16_Right6", 
+           "ON_3.17_Inf_Left_6", "ON_3.17_Inf_Right6", "ON_3.17_Sup_Left_6", 
+           "ON_3.17_Sup_Right6", "ON_3.3_Inf_Left", "ON_3.3_Inf_Right", "ON_3.3_S_Left", 
+           "ON_3.3_S_Right", "ON_3.4_Left_", "ON_3.4_Right_", "ON_3.5_Left_", "ON_3.5_Right_", 
+           "ON_3.6_Left_", "ON_3.6_Right_", "ON_3.7_Left", "ON_3.7_Right_", "ON_3.8_Left6", "ON_3.8_Right_6")
+match <- append("SUBJID", match_V0_V1)
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+ONON_After_V0_V1 <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONON_After_V0_V1 <- ONON_After_V0_V1[-1,]
+
+
+ONON_After_V0_V1 <- data.frame(ONON_After_V0_V1 %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  group_by(SUBJID) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(ONON_After_V0_V1)
+ 
+ONON_After_V0_V1 <- data.frame(ONON_After_V0_V1) %>% mutate_each(as.numeric, ON_3.3_S_Right:ON_3.17_Inf_Left_6)
+sum(is.na(ONON_After_V0_V1))
+dim(ONON_After_V0_V1) 
+
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(ONON_After_V0_V1[,i], na.rm = T),5))
+}
+
+
+Imputed <- imputePCA(ONON_After_V0_V1[,-1],ncp=2, scale = T)
+
+ONON_After_V0_V1 <- ONON_After_V0_V1 %>% select(SUBJID) %>% bind_cols(Imputed$completeObs)
+
+for(i in 2:23){
+  cat(i)
+  print(round(mean(ONON_After_V0_V1[,i], na.rm = T),5))
+}
+
+sum(is.na(ONON_After_V0_V1))
+sum(ONON_After_V0_V1<0)
+ONON_After_V0_V1[ONON_After_V0_V1<0] <- 0
+sum(ONON_After_V0_V1<0)
+
+
+ONON_After_V0_V1 <- data.frame(ONON_After_V0_V1) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Left", Var)) %>% group_by(SUBJID) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(ONON_After_V0_V1) %>% drop_na() %>% gather(Var, Value, ON_3.3_S_Right:ON_3.17_Inf_Left_6) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(grepl("Right", Var)) %>% group_by(SUBJID) %>% summarise(Right=sum(Value))
+  ) 
+
+ONON_After_V0_V1$Diff <- ONON_After_V0_V1$Right - ONON_After_V0_V1$Left
+mean(ONON_After_V0_V1$Diff)
+
+
+
+UPDRSIII_COMPLET_V3_V5 <- read_xlsx(path="Raw_Database/Raquel_Margherita_Juil 24.xlsx",sheet = "UPDRSIII_COMPLET_V3_V5 ", skip=0, col_types = "text", trim_ws = TRUE)
+df_names_V3_V5 <- names(UPDRSIII_COMPLET_V3_V5)
+UPDRSIII_COMPLET_V3_V5 <- UPDRSIII_COMPLET_V3_V5 %>% select(SUBJID, VISIT, ON_MSDROIT_RIG, ON_MSGCHE_RIG, ON_MIDROIT_RIG, ON_MIGCHE_RIG,
+                                            ON_MS_DROIT_DOIGT, ON_MSGCHE_DOIGT, ON_MSDROIT_MAINS, ON_MSGCHE_MAINS, ON_MSDROIT_MA, ON_MSGCHE_MA,
+                                            ON_MIDROIT_PIED, ON_MIGCHE_PIED, ON_MIDROIT_JAMBE, ON_MIGCHE_JAMBE, 
+                                            ON_TREMBLPOST_MSDROIT, ON_TREMBLPOST_MSGCHE, ON_TREMBLMAIN_MSGCHE, ON_TREMBLMAIN_MSDROIT,
+                                            ON_MSDROIT_AMPLI_TREMBL, ON_MSGCHE_AMPLI_TREMBL, ON_MIDROIT_AMPLI_TREMBL, ON_MIGCHE_AMPLI_TREMBL)
+UPDRSIII_COMPLET_V3_V5 <- UPDRSIII_COMPLET_V3_V5[-1,]
+
+ONON_After_V3_V5 <- UPDRSIII_COMPLET_V3_V5
+
+ONON_After_V3_V5 <- data.frame(ONON_After_V3_V5 %>% gather(Var, Value, ON_MSDROIT_RIG:ON_MIGCHE_AMPLI_TREMBL) %>%
+  group_by(SUBJID, VISIT) %>% summarise(n=sum(is.na(Value))) %>% filter(n<22)) %>% select(SUBJID) %>%
+  inner_join(ONON_After_V3_V5)
+ 
+ONON_After_V3_V5 <- data.frame(ONON_After_V3_V5) %>% mutate_each(as.numeric, ON_MSDROIT_RIG:ON_MIGCHE_AMPLI_TREMBL)
+sum(is.na(ONON_After_V3_V5))
+dim(ONON_After_V3_V5) 
+
+
+for(i in 3:24){
+  cat(i)
+  print(round(mean(ONON_After_V3_V5[,i], na.rm = T),5))
+}
+
+
+Imputed <- imputePCA(ONON_After_V3_V5[,-c(1,2)],ncp=2, scale = T)
+
+ONON_After_V3_V5 <- ONON_After_V3_V5 %>% select(SUBJID, VISIT) %>% bind_cols(Imputed$completeObs)
+
+for(i in 3:24){
+  cat(i)
+  print(round(mean(ONON_After_V3_V5[,i], na.rm = T),5))
+}
+
+sum(is.na(ONON_After_V3_V5))
+sum(ONON_After_V3_V5<0)
+ONON_After_V3_V5[ONON_After_V3_V5<0] <- 0
+sum(ONON_After_V3_V5<0)
+
+ONON_After_V3_V5 <- ONON_After_V3_V5 %>% mutate(VISIT=ifelse(grepl("V3", VISIT), 3,5)) 
+
+ONON_After_V3_V5 <- data.frame(ONON_After_V3_V5) %>% drop_na() %>% gather(Var, Value, ON_MSDROIT_RIG:ON_MIGCHE_AMPLI_TREMBL) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(Var %in% c("ON_MSGCHE_RIG","ON_MIGCHE_RIG","ON_MSGCHE_DOIGT", "ON_MSGCHE_MAINS", 
+                    "ON_MSGCHE_MA","ON_MIGCHE_PIED", "ON_MIGCHE_JAMBE", "ON_TREMBLPOST_MSGCHE",
+                    "ON_TREMBLMAIN_MSGCHE","ON_MSGCHE_AMPLI_TREMBL","ON_MIGCHE_AMPLI_TREMBL")) %>% group_by(SUBJID, VISIT) %>% summarise(Left=sum(Value)) %>%
+  inner_join(
+data.frame(ONON_After_V3_V5) %>% drop_na() %>% gather(Var, Value, ON_MSDROIT_RIG:ON_MIGCHE_AMPLI_TREMBL) %>%
+  mutate(Value=as.numeric(Value)) %>% mutate(Value=ifelse(is.na(Value),0,Value)) %>%
+  filter(Var %in% c("ON_MSDROIT_RIG","ON_MIDROIT_RIG","ON_MS_DROIT_DOIGT","ON_MSDROIT_MAINS" ,
+                    "ON_MSDROIT_MA","ON_MIDROIT_PIED","ON_MIDROIT_JAMBE", "ON_TREMBLPOST_MSDROIT",
+                    "ON_TREMBLMAIN_MSDROIT","ON_MSDROIT_AMPLI_TREMBL","ON_MIDROIT_AMPLI_TREMBL" )) %>% group_by(SUBJID, VISIT) %>% summarise(Right=sum(Value))
+  ) 
+
+ONON_After_V3_V5$Diff <- ONON_After_V3_V5$Right - ONON_After_V3_V5$Left
+mean(ONON_After_V3_V5$Diff)
+
+ONON_After_V0_V1 <- ONON_After_V0_V1 %>% mutate(VISIT=1) %>% select(SUBJID, VISIT, Left, Right, Diff)
+
+ONON_After_V3_V5 <- ONON_After_V3_V5 %>% select(SUBJID) %>% distinct() %>% inner_join(ONON_After_V0_V1) %>%
+  bind_rows(ONON_After_V3_V5)
+
+unique(ONON_After_V3_V5$VISIT)
+
+ONON_After_V3_V5 %>% group_by(VISIT) %>%
+  summarise(Left=mean(Left), Right=mean(Right), Diff=mean(Diff))
+
+ONON_After_V3_V5 %>% group_by(VISIT) %>%
+  summarise(Left=sd(Left), Right=sd(Right), Diff=sd(Diff))
+
+ONON_After_V3_V5 %>% arrange(SUBJID)
+
+
+
+ONON_After_V3_V5 %>% gather(Var, Value, Left:Diff) %>%
+  filter(Var=="Left") %>% ungroup() %>%
+  mutate(VISIT=as.factor(VISIT)) %>%
+  mutate(VISIT=ifelse(VISIT==1, "Year 1",
+                      ifelse(VISIT==3, "Year 3", "Year 5"))) %>%
+  ggplot(aes(Value, colour=VISIT, fill=VISIT)) +
+  geom_density(alpha=0.7) +
+  xlab("\n Left MDS UPDRS III") +
+  ylab("Patient density \n") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.line = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        axis.title.x = element_text(size = 12, vjust = -0.5),
+        axis.title.y = element_text(size = 12, vjust = -0.5),
+        plot.margin = margin(5, 5, 5, 5, "pt")) +
+  scale_fill_manual(values=c("#bbbbbb", "#4689cc", "#2841b0")) +
+  scale_colour_manual(values=c("#bbbbbb", "#4689cc", "#2841b0"))  +
+  xlim(0,40)
+
+
+
+
+ONON_After_V3_V5 %>% gather(Var, Value, Left:Diff) %>%
+  filter(Var=="Right") %>% ungroup() %>%
+  mutate(VISIT=as.factor(VISIT)) %>%
+  mutate(VISIT=ifelse(VISIT==1, "Year 1",
+                      ifelse(VISIT==3, "Year 3", "Year 5"))) %>%
+  ggplot(aes(Value, colour=VISIT, fill=VISIT)) +
+  geom_density(alpha=0.7) +
+  xlab("\n Right MDS UPDRS III") +
+  ylab("Patient density \n") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.line = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        axis.title.x = element_text(size = 12, vjust = -0.5),
+        axis.title.y = element_text(size = 12, vjust = -0.5),
+        plot.margin = margin(5, 5, 5, 5, "pt")) +
+  scale_fill_manual(values=c("#bbbbbb", "#4689cc", "#2841b0")) +
+  scale_colour_manual(values=c("#bbbbbb", "#4689cc", "#2841b0")) +
+  xlim(0,40)
+
+
+
+ONON_After_V3_V5 %>% gather(Var, Value, Left:Diff) %>%
+  filter(Var=="Diff") %>% ungroup() %>%
+  mutate(VISIT=as.factor(VISIT)) %>%
+  mutate(VISIT=ifelse(VISIT==1, "Year 1",
+                      ifelse(VISIT==3, "Year 3", "Year 5"))) %>%
+  ggplot(aes(abs(Value), colour=VISIT, fill=VISIT)) +
+  geom_density(alpha=0.7) +
+  xlab("\n Right-to-Left Asymmetry MDS UPDRS III") +
+  ylab("Patient density \n") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.line = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        axis.title.x = element_text(size = 12, vjust = -0.5),
+        axis.title.y = element_text(size = 12, vjust = -0.5),
+        plot.margin = margin(5, 5, 5, 5, "pt")) +
+  scale_fill_manual(values=c("#bbbbbb", "#4689cc", "#2841b0")) +
+  scale_colour_manual(values=c("#bbbbbb", "#4689cc", "#2841b0")) +
+  xlim(0,25)
+
+  
+
+ONON_After_V3_V5 %>% select(SUBJID, VISIT, Diff) %>%
+  spread(key=VISIT, value=Diff) %>% 
+  mutate(Delta_3=abs(abs(`3`)-abs(`1`))) %>%
+  mutate(Delta_5=abs(abs(`5`)-abs(`1`)))
+
+# ----------------------
+# Axial Delta OFF to ON/OFF or OFF/ON  -------
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+OFF_before <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%
+  arrange(df_names) %>%
+  filter(!grepl("ON", df_names)) %>%   filter(!grepl("1$", df_names))
+
+toString(as.list(OFF_before))
+
+match <- c("OFF_3.9_", "OFF_3.10_", "OFF_3.11_", "OFF_3.12_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before <- OFF_before[-1,]
+
+
+OFF_before <- OFF_before %>% mutate(OFF_3.9_  =as.numeric(OFF_3.9_  ),
+                                    OFF_3.10_  =as.numeric(OFF_3.10_  ),
+                                    OFF_3.11_  =as.numeric(OFF_3.11_  ),
+                                    OFF_3.12_=as.numeric(OFF_3.12_)
+) 
+
+
+
+
+ONON_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^ON", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("OFF", df_names)) 
+
+
+toString(as.list(ONON_After))
+
+match <- c("ON_3.10_6", "ON_3.11_6", "ON_3.12_6", "ON_3.9_6")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONON_After <- ONON_After[-1,]
+
+ONON_After <- ONON_After %>% mutate(ON_3.9_6 =as.numeric(ON_3.9_6 ),
+                                    ON_3.10_6 =as.numeric(ON_3.10_6 ),
+                                    ON_3.11_6 =as.numeric(ON_3.11_6 ),
+                                    ON_3.12_6=as.numeric(ON_3.12_6)
+) 
+
+
+
+
+
+OFFOFF_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^OFF", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("ON", df_names)) 
+
+
+toString(as.list(OFFOFF_After))
+
+match <- c("OFF_3.10_1", "OFF_3.11_1", "OFF_3.12_1", "OFF_3.9_1")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFOFF_After <- OFFOFF_After[-1,]
+
+
+OFFOFF_After <- OFFOFF_After %>% mutate(OFF_3.9_1  =as.numeric(OFF_3.9_1  ),
+                                        OFF_3.10_1  =as.numeric(OFF_3.10_1  ),
+                                        OFF_3.11_1  =as.numeric(OFF_3.11_1  ),
+                                        OFF_3.12_1=as.numeric(OFF_3.12_1)
+) 
+
+
+
+
+ONOFF_After <- data.frame(df_names) %>%
+  filter(grepl("^ONOFF", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(ONOFF_After))
+
+match <- c("ONOFF_3.10_", "ONOFF_3.11_", "ONOFF_3.12_", "ONOFF_3.9_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONOFF_After <- ONOFF_After[-1,]
+
+
+ONOFF_After <- ONOFF_After %>% mutate(ONOFF_3.10_  =as.numeric(ONOFF_3.10_  ),
+                                      ONOFF_3.11_  =as.numeric(ONOFF_3.11_  ),
+                                      ONOFF_3.12_  =as.numeric(ONOFF_3.12_  ),
+                                      ONOFF_3.9_=as.numeric(ONOFF_3.9_)
+) 
+
+
+
+
+OFFON_After <- data.frame(df_names) %>%
+  filter(grepl("^OFFON", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFFON_After))
+
+match <- c("OFFON_3.10_", "OFFON_3.11_", "OFFON_3.12_", "OFFON_3.9_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFON_After <- OFFON_After[-1,]
+
+
+OFFON_After <- OFFON_After %>% mutate(OFFON_3.10_  =as.numeric(OFFON_3.10_  ),
+                                      OFFON_3.11_  =as.numeric(OFFON_3.11_  ),
+                                      OFFON_3.12_  =as.numeric(OFFON_3.12_  ),
+                                      OFFON_3.9_=as.numeric(OFFON_3.9_)
+) 
+
+
+
+OFF_before[is.na(OFF_before)] <- 0
+ONON_After[is.na(ONON_After)] <- 0
+OFFOFF_After[is.na(OFFOFF_After)] <- 0
+ONOFF_After[is.na(ONOFF_After)] <- 0
+OFFON_After[is.na(OFFON_After)] <- 0
+
+
+OFF_before$AxialScoreOFFbefore <- OFF_before$OFF_3.9_ + OFF_before$OFF_3.10_ + OFF_before$OFF_3.11_ + OFF_before$OFF_3.12_
+ONON_After$AxialScoreON <- ONON_After$ON_3.9_6 + ONON_After$ON_3.10_6 + ONON_After$ON_3.11_6 + ONON_After$ON_3.12_6
+OFFOFF_After$AxialScoreOFF <- OFFOFF_After$OFF_3.9_1 + OFFOFF_After$OFF_3.10_1 + OFFOFF_After$OFF_3.11_1 + OFFOFF_After$OFF_3.12_1 
+ONOFF_After$AxialScoreONOFF <- ONOFF_After$ONOFF_3.9_  + ONOFF_After$ONOFF_3.10_  + ONOFF_After$ONOFF_3.11_  + ONOFF_After$ONOFF_3.12_ 
+OFFON_After$AxialScoreOFFON <- OFFON_After$OFFON_3.9_  + OFFON_After$OFFON_3.10_  + OFFON_After$OFFON_3.11_  + OFFON_After$OFFON_3.12_ 
+
+merged <- OFFOFF_After %>% filter(AxialScoreOFF!=0) %>% select(SUBJID, AxialScoreOFF) %>%
+  full_join(ONON_After %>% filter(AxialScoreON!=0) %>% select(SUBJID, AxialScoreON)) %>%
+  full_join(ONOFF_After %>% filter(AxialScoreONOFF!=0) %>% select(SUBJID, AxialScoreONOFF)) %>%
+  full_join(OFFON_After %>% filter(AxialScoreOFFON!=0) %>% select(SUBJID, AxialScoreOFFON))
+
+
+merged[is.na(merged)] <- 0
+
+merged$Delta_ONOFF <- (merged$AxialScoreONOFF  - merged$AxialScoreOFF)/merged$AxialScoreOFF
+merged$Delta_OFFON <- (merged$AxialScoreOFFON  - merged$AxialScoreOFF )/merged$AxialScoreOFF
+
+cor(merged$Delta_ONOFF, merged$Delta_OFFON)
+cor.test(merged$Delta_ONOFF, merged$Delta_OFFON, method="spearman")
+
+
+# ------------------
+
+# Bradykinesia Delta OFF to ON/OFF or OFF/ON  -------
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+OFFOFF_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^OFF", df_names)) %>%
+  filter(grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("ON", df_names)) 
+
+
+toString(as.list(OFFOFF_After))
+
+match <- c("OFF_3.4_Left_1", "OFF_3.4_Right_1", "OFF_3.5_Left_1", "OFF_3.5_Right_1",
+           "OFF_3.6_Left_1", "OFF_3.6_Right_1", "OFF_3.7_Left1", "OFF_3.7_Right_1",
+           "OFF_3.8_Left1", "OFF_3.8_Right_1")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFOFF_After <- OFFOFF_After[-1,]
+
+
+OFFOFF_After <- OFFOFF_After %>% mutate(OFF_3.4_Left_1  =as.numeric(OFF_3.4_Left_1  ),
+                                        OFF_3.4_Right_1  =as.numeric(OFF_3.4_Right_1  ),
+                                        OFF_3.5_Left_1  =as.numeric(OFF_3.5_Left_1  ),
+                                        OFF_3.5_Right_1=as.numeric(OFF_3.5_Right_1),
+                                        OFF_3.6_Left_1=as.numeric(OFF_3.6_Left_1),
+                                        OFF_3.6_Right_1=as.numeric(OFF_3.6_Right_1),
+                                        OFF_3.7_Left1=as.numeric(OFF_3.7_Left1),
+                                        OFF_3.7_Right_1=as.numeric(OFF_3.7_Right_1),
+                                        OFF_3.8_Left1=as.numeric(OFF_3.8_Left1),
+                                        OFF_3.8_Right_1=as.numeric(OFF_3.8_Right_1),
+) 
+
+
+
+
+ONOFF_After <- data.frame(df_names) %>%
+  filter(grepl("^ONOFF", df_names)) %>%
+  filter(grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(ONOFF_After))
+
+match <- c("ONOFF_3.4_Left_", "ONOFF_3.4_Right_", "ONOFF_3.5_Left_", "ONOFF_3.5_Right_",
+           "ONOFF_3.6_Left_", "ONOFF_3.6_Right_", "ONOFF_3.7_Left", "ONOFF_3.7_Right_",
+           "ONOFF_3.8_Left", "ONOFF_3.8_Right_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONOFF_After <- ONOFF_After[-1,]
+
+
+ONOFF_After <- ONOFF_After %>% mutate(ONOFF_3.4_Left_  =as.numeric(ONOFF_3.4_Left_  ),
+                                      ONOFF_3.4_Right_  =as.numeric(ONOFF_3.4_Right_  ),
+                                      ONOFF_3.5_Left_  =as.numeric(ONOFF_3.5_Left_  ),
+                                      ONOFF_3.5_Right_=as.numeric(ONOFF_3.5_Right_),
+                                      ONOFF_3.6_Left_=as.numeric(ONOFF_3.6_Left_),
+                                      ONOFF_3.6_Right_=as.numeric(ONOFF_3.6_Right_),
+                                      ONOFF_3.7_Left=as.numeric(ONOFF_3.7_Left),
+                                      ONOFF_3.7_Right_=as.numeric(ONOFF_3.7_Right_),
+                                      ONOFF_3.8_Left=as.numeric(ONOFF_3.8_Left),
+                                      ONOFF_3.8_Right_=as.numeric(ONOFF_3.8_Right_)
+) 
+
+
+
+
+OFFON_After <- data.frame(df_names) %>%
+  filter(grepl("^OFFON", df_names)) %>%
+  filter(grepl("3.4", df_names)|
+           grepl("3.5", df_names)|
+           grepl("3.6", df_names)|
+           grepl("3.7", df_names)|
+           grepl("3.8", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFFON_After))
+
+match <- c("OFFON_3.4_Left_", "OFFON_3.4_Right_", "OFFON_3.5_Left_", "OFFON_3.5_Right_",
+           "OFFON_3.6_Left_", "OFFON_3.6_Right_", "OFFON_3.7_Left", "OFFON_3.7_Right_",
+           "OFFON_3.8_Left", "OFFON_3.8_Right_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFON_After <- OFFON_After[-1,]
+
+
+OFFON_After <- OFFON_After %>% mutate(OFFON_3.4_Left_  =as.numeric(OFFON_3.4_Left_  ),
+                                      OFFON_3.4_Right_  =as.numeric(OFFON_3.4_Right_  ),
+                                      OFFON_3.5_Left_  =as.numeric(OFFON_3.5_Left_  ),
+                                      OFFON_3.5_Right_=as.numeric(OFFON_3.5_Right_),
+                                      OFFON_3.6_Left_=as.numeric(OFFON_3.6_Left_),
+                                      OFFON_3.6_Right_=as.numeric(OFFON_3.6_Right_),
+                                      OFFON_3.7_Left=as.numeric(OFFON_3.7_Left),
+                                      OFFON_3.7_Right_=as.numeric(OFFON_3.7_Right_),
+                                      OFFON_3.8_Left=as.numeric(OFFON_3.8_Left),
+                                      OFFON_3.8_Right_=as.numeric(OFFON_3.8_Right_)
+) 
+
+
+
+OFFOFF_After[is.na(OFFOFF_After)] <- 0
+ONOFF_After[is.na(ONOFF_After)] <- 0
+OFFON_After[is.na(OFFON_After)] <- 0
+
+names(OFFON_After)
+
+OFFOFF_After$BradyOFFOFF <- OFFOFF_After$OFF_3.4_Right_1 + OFFOFF_After$OFF_3.4_Left_1 + 
+  OFFOFF_After$OFF_3.5_Right_1 + OFFOFF_After$OFF_3.5_Left_1 +  OFFOFF_After$OFF_3.6_Right_1 + OFFOFF_After$OFF_3.6_Left_1 +
+  OFFOFF_After$OFF_3.7_Right_1 + OFFOFF_After$OFF_3.7_Left1  +  OFFOFF_After$OFF_3.8_Right_1 + OFFOFF_After$OFF_3.8_Left1 
+
+ONOFF_After$BradyONOFF <- ONOFF_After$ONOFF_3.4_Right_  + ONOFF_After$ONOFF_3.4_Left_  + ONOFF_After$ONOFF_3.5_Right_  + ONOFF_After$ONOFF_3.5_Left_ +
+  ONOFF_After$ONOFF_3.6_Right_  + ONOFF_After$ONOFF_3.6_Left_  + ONOFF_After$ONOFF_3.7_Right_  + ONOFF_After$ONOFF_3.7_Left +
+  ONOFF_After$ONOFF_3.8_Right_  + ONOFF_After$ONOFF_3.8_Left  
+
+OFFON_After$BradyOFFON <- OFFON_After$OFFON_3.4_Right_  + OFFON_After$OFFON_3.4_Left_  + OFFON_After$OFFON_3.5_Right_  + OFFON_After$OFFON_3.5_Left_ +
+  OFFON_After$OFFON_3.6_Right_  + OFFON_After$OFFON_3.6_Left_  + OFFON_After$OFFON_3.7_Right_  + OFFON_After$OFFON_3.7_Left +
+  OFFON_After$OFFON_3.8_Right_  + OFFON_After$OFFON_3.8_Left  
+
+merged <- OFFOFF_After %>% filter(BradyOFFOFF!=0) %>% select(SUBJID, BradyOFFOFF) %>%
+  full_join(ONOFF_After %>% filter(BradyONOFF!=0) %>% select(SUBJID, BradyONOFF)) %>%
+  full_join(OFFON_After %>% filter(BradyOFFON!=0) %>% select(SUBJID, BradyOFFON))
+
+merged[is.na(merged)] <- 0
+
+merged$Delta_ONOFF <- (merged$BradyONOFF  - merged$BradyOFFOFF)/merged$BradyOFFOFF
+merged$Delta_OFFON <- (merged$BradyOFFON  - merged$BradyOFFOFF )/merged$BradyOFFOFF
+
+cor(merged$Delta_ONOFF, merged$Delta_OFFON)
+cor.test(merged$Delta_ONOFF, merged$Delta_OFFON, method="spearman")
+
+# ------------
+
+# Rigidity Delta OFF to ON/OFF or OFF/ON  -------
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+OFFOFF_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^OFF", df_names)) %>%
+  filter(grepl("3.3", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("ON", df_names)) 
+
+
+toString(as.list(OFFOFF_After))
+
+match <- c("OFF_3.3_Inf_Left1", "OFF_3.3_Inf_Right1", "OFF_3.3_S_Left1", "OFF_3.3_S_Right1")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFOFF_After <- OFFOFF_After[-1,]
+
+
+OFFOFF_After <- OFFOFF_After %>% mutate(OFF_3.3_Inf_Left1  =as.numeric(OFF_3.3_Inf_Left1  ),
+                                        OFF_3.3_Inf_Right1  =as.numeric(OFF_3.3_Inf_Right1  ),
+                                        OFF_3.3_S_Left1  =as.numeric(OFF_3.3_S_Left1  ),
+                                        OFF_3.3_S_Right1=as.numeric(OFF_3.3_S_Right1)) 
+
+
+
+
+ONOFF_After <- data.frame(df_names) %>%
+  filter(grepl("^ONOFF", df_names)) %>%
+  filter(grepl("3.3", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(ONOFF_After))
+
+match <- c("ONOFF_3.3_Inf_Left", "ONOFF_3.3_Inf_Right", "ONOFF_3.3_S_Left",
+           "ONOFF_3.3_S_Right")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONOFF_After <- ONOFF_After[-1,]
+
+
+ONOFF_After <- ONOFF_After %>% mutate(ONOFF_3.3_Inf_Left  =as.numeric(ONOFF_3.3_Inf_Left  ),
+                                      ONOFF_3.3_Inf_Right  =as.numeric(ONOFF_3.3_Inf_Right  ),
+                                      ONOFF_3.3_S_Left  =as.numeric(ONOFF_3.3_S_Left  ),
+                                      ONOFF_3.3_S_Right=as.numeric(ONOFF_3.3_S_Right)
+) 
+
+
+
+
+OFFON_After <- data.frame(df_names) %>%
+  filter(grepl("^OFFON", df_names)) %>%
+  filter(grepl("3.3", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFFON_After))
+
+match <- c("OFFON_3.3_Inf_Left", "OFFON_3.3_Inf_Right", "OFFON_3.3_S_Left", "OFFON_3.3_S_Right")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFON_After <- OFFON_After[-1,]
+
+
+OFFON_After <- OFFON_After %>% mutate(OFFON_3.3_Inf_Left  =as.numeric(OFFON_3.3_Inf_Left  ),
+                                      OFFON_3.3_Inf_Right  =as.numeric(OFFON_3.3_Inf_Right  ),
+                                      OFFON_3.3_S_Left  =as.numeric(OFFON_3.3_S_Left  ),
+                                      OFFON_3.3_S_Right=as.numeric(OFFON_3.3_S_Right)
+) 
+
+
+
+OFFOFF_After[is.na(OFFOFF_After)] <- 0
+ONOFF_After[is.na(ONOFF_After)] <- 0
+OFFON_After[is.na(OFFON_After)] <- 0
+
+names(OFFON_After)
+
+OFFOFF_After$RigidityOFFOFF <- OFFOFF_After$OFF_3.3_S_Right1 + OFFOFF_After$OFF_3.3_S_Left1 + 
+  OFFOFF_After$OFF_3.3_Inf_Left1 + OFFOFF_After$OFF_3.3_Inf_Right1 
+
+ONOFF_After$RigidityONOFF <- ONOFF_After$ONOFF_3.3_S_Right  + ONOFF_After$ONOFF_3.3_S_Left  + 
+  ONOFF_After$ONOFF_3.3_Inf_Right  + ONOFF_After$ONOFF_3.3_Inf_Left 
+
+OFFON_After$RigidityOFFON <- OFFON_After$OFFON_3.3_S_Right  + OFFON_After$OFFON_3.3_S_Left  + 
+  OFFON_After$OFFON_3.3_Inf_Right  + OFFON_After$OFFON_3.3_Inf_Left
+
+merged <- OFFOFF_After %>% filter(RigidityOFFOFF!=0) %>% select(SUBJID, RigidityOFFOFF) %>%
+  full_join(ONOFF_After %>% filter(RigidityONOFF!=0) %>% select(SUBJID, RigidityONOFF)) %>%
+  full_join(OFFON_After %>% filter(RigidityOFFON!=0) %>% select(SUBJID, RigidityOFFON))
+
+merged[is.na(merged)] <- 0
+
+merged$Delta_ONOFF <- (merged$RigidityONOFF  - merged$RigidityOFFOFF)/merged$RigidityOFFOFF  
+merged$Delta_OFFON <- (merged$RigidityOFFON  - merged$RigidityOFFOFF )/merged$RigidityOFFOFF 
+
+cor(merged$Delta_ONOFF, merged$Delta_OFFON)
+cor.test(merged$Delta_ONOFF, merged$Delta_OFFON, method="spearman")
+
+# ------------
+
+# Deltas Pre OP and Post OP total UPDRS ---------------
+
+UPDRSIII_TOTAUX <- read_xlsx(path="Raw_Database/Asymmetry_DeepBrainStimulation.xlsx",
+                             sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX[-1,]
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% select(SUBJID, TOT_OFF_DRUG_V0,EVAL_MOT_BESTON_V0,
+                                              ONOFF_TOTALCALC_V1:ON_TOTALCALC_V1 )
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% 
+  mutate(DeltaPreOP = (as.numeric(TOT_OFF_DRUG_V0)-as.numeric(EVAL_MOT_BESTON_V0)) / as.numeric(TOT_OFF_DRUG_V0)) %>%
+  mutate(DeltaPostOP_ONOFF = (as.numeric(OFF_TOTALCALC_V1)-as.numeric(ONOFF_TOTALCALC_V1)) / as.numeric(OFF_TOTALCALC_V1)) %>%
+  mutate(DeltaPostOP_OFFON = (as.numeric(OFF_TOTALCALC_V1)-as.numeric(OFFON_TOTALCALC_V1)) / as.numeric(OFF_TOTALCALC_V1)) %>%
+  mutate(DeltaPostOP_ONON = (as.numeric(OFF_TOTALCALC_V1)-as.numeric(ON_TOTALCALC_V1)) / as.numeric(OFF_TOTALCALC_V1)) %>%
+  select(SUBJID, DeltaPreOP, DeltaPostOP_ONOFF, DeltaPostOP_OFFON, DeltaPostOP_ONON)
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% drop_na()
+
+cor.test(UPDRSIII_TOTAUX$DeltaPreOP, UPDRSIII_TOTAUX$DeltaPostOP_ONOFF, method = "spearman")
+
+# Spearman's rank correlation rho
+# 
+# data:  UPDRSIII_TOTAUX$DeltaPreOP and UPDRSIII_TOTAUX$DeltaPostOP_ONOFF
+# S = 16628761, p-value = 0.0004753
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.1571147 
+
+cor.test(UPDRSIII_TOTAUX$DeltaPreOP, UPDRSIII_TOTAUX$DeltaPostOP_OFFON, method = "spearman")
+
+# Spearman's rank correlation rho
+# 
+# data:  UPDRSIII_TOTAUX$DeltaPreOP and UPDRSIII_TOTAUX$DeltaPostOP_OFFON
+# S = 15986383, p-value = 2.33e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.1896758 
+
+cor.test(UPDRSIII_TOTAUX$DeltaPreOP, UPDRSIII_TOTAUX$DeltaPostOP_ONON, method = "spearman")
+
+# Spearman's rank correlation rho
+# 
+# data:  UPDRSIII_TOTAUX$DeltaPreOP and UPDRSIII_TOTAUX$DeltaPostOP_ONON
+# S = 13561569, p-value = 1.369e-12
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.3125858 
+
+UPDRSIII_TOTAUX <- UPDRSIII_TOTAUX %>% gather(Moment, Drop, DeltaPreOP:DeltaPostOP_ONON)
+
+friedman.test(y=UPDRSIII_TOTAUX$Drop, groups=UPDRSIII_TOTAUX$Moment, blocks=UPDRSIII_TOTAUX$SUBJID)
+
+# Friedman rank sum test
+# 
+# data:  UPDRSIII_TOTAUX$Drop, UPDRSIII_TOTAUX$Moment and UPDRSIII_TOTAUX$SUBJID
+# Friedman chi-squared = 746.14, df = 3, p-value < 2.2e-16
+
+
+pairwise.wilcox.test(UPDRSIII_TOTAUX$Drop, UPDRSIII_TOTAUX$Moment, p.adj = "bonferroni", paired=T)
+
+UPDRSIII_TOTAUX %>% group_by(Moment) %>% 
+  summarise(mean=mean(Drop), sd=sd(Drop))
+
+# Moment             mean    sd
+# 1 DeltaPostOP_OFFON 0.570 0.213
+# 2 DeltaPostOP_ONOFF 0.495 0.278
+# 3 DeltaPostOP_ONON  0.756 0.151
+# 4 DeltaPreOP        0.748 0.137
+
+# ---------------------------
