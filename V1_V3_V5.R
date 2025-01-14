@@ -161,7 +161,9 @@ ONON_After_V3_V5 %>% arrange(SUBJID)
 ONON_After_V3_V5 <- ONON_After_V3_V5 %>% group_by(SUBJID) %>% count() %>% filter(n==3) %>%
   select(SUBJID) %>% left_join(ONON_After_V3_V5) %>% ungroup() #415
 
+SUBJID <- ONON_After_V3_V5 %>% select(SUBJID) %>% distinct()
 
+fwrite(SUBJID, "Asym_415_allpats.txt")
 
 # LEFT ****************************************************
 
@@ -2331,3 +2333,476 @@ image <- ggplot(coef_melted, aes(x = Predictor, y = value, fill = variable, alph
 
 ggsave(file="preds.svg", plot=image, width=14, height=6)
 # -------------------------
+# Cohort Clinical and Demographic characteristics for 415 all asymmetry pats -----------------------
+
+SUBJID <- fread("Asym_415_allpats.txt")
+
+# DEMOGRAPHICS
+DEMOGRAPHIE <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "DEMOGRAPHIE ", skip=0, col_types = "text", trim_ws = TRUE)
+DEMOGRAPHIE <- SUBJID %>% inner_join(DEMOGRAPHIE)
+DEMOGRAPHIE <- DEMOGRAPHIE %>% mutate(D_SCREEN=as.numeric(str_sub(D_SCREEN, 7L, 10L)))
+
+# AGE
+DEMOGRAPHIE %>% summarise(mean=mean(as.numeric(AGE)), sd=sd(as.numeric(AGE)))
+
+# GENDER
+DEMOGRAPHIE %>% group_by( SEXE) %>% count()
+
+
+# RACE
+DEMOGRAPHIE %>% group_by( ETHNIE) %>% count()
+
+
+# Symptoms to 1st Screen
+DEMOGRAPHIE %>% 
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_1ER_SYMPT), na.rm=T), 
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_1ER_SYMPT), na.rm=T))
+
+
+# Diagnosis to 1st Screen
+DEMOGRAPHIE %>% 
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_DIAG), na.rm=T),
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_DIAG), na.rm=T))
+
+
+
+# L-DOPA Init to 1st Screen
+DEMOGRAPHIE %>% 
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_LDOPA), na.rm=T), 
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_LDOPA), na.rm=T))
+
+
+# Any DOPA Init to 1st Screen
+DEMOGRAPHIE %>% filter(D_TTT_DOPAM!="003") %>%
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_TTT_DOPAM), na.rm=T), 
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_TTT_DOPAM), na.rm=T))
+
+
+# Motor Fluct to 1st Screen
+DEMOGRAPHIE %>% filter(D_FLUCTU_MOTR>="19") %>%
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_FLUCTU_MOTR), na.rm=T), 
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_FLUCTU_MOTR), na.rm=T))
+
+
+# Non-Motor Fluct to 1st Screen
+DEMOGRAPHIE %>%  filter(D_FLUCTU_NONMOTR!="0"&D_FLUCTU_NONMOTR!="0000") %>%
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_FLUCTU_NONMOTR), na.rm=T),
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_FLUCTU_NONMOTR), na.rm=T))
+
+
+# Dyskinesia to 1st Screen
+DEMOGRAPHIE %>%  filter(D_DYSKINESIE!="0") %>%
+  summarise(mean=mean(as.numeric(D_SCREEN)-as.numeric(D_DYSKINESIE), na.rm=T), 
+            sd=sd(as.numeric(D_SCREEN)-as.numeric(D_DYSKINESIE), na.rm=T))
+
+
+
+
+# Age DBS
+DATES_DE_VISITES  <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "DATES_DE_VISITES ", skip=0, col_types = "text", trim_ws = TRUE)
+DATES_DE_VISITES <- DATES_DE_VISITES %>% select(SUBJID, D_CHIR)
+DATES_DE_VISITES %>% inner_join(DEMOGRAPHIE %>% select(SUBJID, DDN)) %>% 
+  mutate(D_CHIR=as.numeric(str_sub(D_CHIR, 7L, 10L))) %>%
+  mutate(DDN=as.numeric(str_sub(DDN, 4L, 7))) %>% 
+  inner_join(SUBJID) %>% 
+  summarise(mean=mean(D_CHIR-DDN, na.rm=T), sd=sd(D_CHIR-DDN, na.rm=T))
+
+
+# UPDRS III Total
+UPDRSIII_TOTAUX <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_TOTAUX", skip=0, col_types = "text", trim_ws = TRUE)
+UPDRSIII_TOTAUX <- SUBJID %>% inner_join(UPDRSIII_TOTAUX)
+names(UPDRSIII_TOTAUX)
+
+# Pre OFF
+UPDRSIII_TOTAUX %>% 
+  summarise(mean=mean(as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T), 
+            sd=sd(as.numeric(UPDRSIII_TOTAUX$TOT_OFF_DRUG_V0), na.rm=T))
+
+
+
+# Pre Best ON
+UPDRSIII_TOTAUX %>%
+  summarise(mean=mean(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0), na.rm=T),
+            sd=sd(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V0), na.rm=T))
+
+
+# Post OFF
+UPDRSIII_TOTAUX %>% 
+  summarise(mean=mean(as.numeric(UPDRSIII_TOTAUX$OFF_TOTALCALC_V1), na.rm=T), 
+            sd=sd(as.numeric(UPDRSIII_TOTAUX$OFF_TOTALCALC_V1), na.rm=T))
+
+
+# Post Best ON
+UPDRSIII_TOTAUX %>% 
+  summarise(mean=mean(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V1), na.rm=T),
+            sd=sd(as.numeric(UPDRSIII_TOTAUX$EVAL_MOT_BESTON_V1), na.rm=T))
+
+
+# UMSARS II Total
+UPDRSI_II <- fread("UPDRSI_II.txt")
+UPDRSI_II <- UPDRSI_II %>% gather(item, value, MDS_2_4ON:MDS2_9ON) %>%
+  mutate(state=ifelse(grepl("ON", item), "ON", "OFF")) %>%
+  group_by(SUBJID, VISIT, state) %>% 
+  summarise(value=sum(value)) %>%
+  ungroup() %>%
+  mutate(VISIT=ifelse(VISIT==0, "Pre_OP", "Post_OP")) 
+
+SUBJID %>% inner_join(UPDRSI_II) %>%
+  group_by(VISIT, state) %>% summarise(mean=mean(value), sd=sd(value))
+
+
+
+
+# S&E
+Hoehn_YarhS_E <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+Hoehn_YarhS_E <- SUBJID %>% inner_join(Hoehn_YarhS_E)
+names(Hoehn_YarhS_E)
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_OFF) %>% spread(key=VISIT, value=SCHWAB_OFF) %>% 
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>%
+  summarise(mean=mean(`Visite de screening`), sd=sd(`Visite de screening`))
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_OFF) %>% spread(key=VISIT, value=SCHWAB_OFF) %>% 
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_ON) %>% spread(key=VISIT, value=SCHWAB_ON) %>% 
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite de screening`), sd=sd(`Visite de screening`))
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, SCHWAB_ON) %>% spread(key=VISIT, value=SCHWAB_ON) %>% 
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+
+
+
+
+# H&E
+Hoehn_YarhS_E <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "Hoehn&Yarh-S&E", skip=0, col_types = "text", trim_ws = TRUE)
+Hoehn_YarhS_E <- SUBJID %>% inner_join(Hoehn_YarhS_E)
+names(Hoehn_YarhS_E)
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_OFF) %>% spread(key=VISIT, value=HOEHN_YAHR_OFF) %>%
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, ",", ".")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, "Stade ", "")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, ",", ".")) %>%
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite de screening`), sd=sd(`Visite de screening`))
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_OFF) %>% spread(key=VISIT, value=HOEHN_YAHR_OFF) %>% 
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, ",", ".")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, "Stade ", "")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, ",", ".")) %>%
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_ON) %>% spread(key=VISIT, value=HOEHN_YAHR_ON) %>% 
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, ",", ".")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, "Stade ", "")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, ",", ".")) %>%
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite de screening`), sd=sd(`Visite de screening`))
+
+
+Hoehn_YarhS_E %>% select(SUBJID, VISIT, HOEHN_YAHR_ON) %>% spread(key=VISIT, value=HOEHN_YAHR_ON) %>% 
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, "Stade ", "")) %>%
+  mutate(`Visite Bilan à 1 an - V1` = str_replace(`Visite Bilan à 1 an - V1`, ",", ".")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, "Stade ", "")) %>%
+  mutate(`Visite de screening` = str_replace(`Visite de screening`, ",", ".")) %>%
+  mutate(`Visite Bilan à 1 an - V1`=parse_number(`Visite Bilan à 1 an - V1`)) %>%
+  mutate(`Visite de screening`=parse_number(`Visite de screening`)) %>%
+  drop_na() %>% 
+  summarise(mean=mean(`Visite Bilan à 1 an - V1`), sd=sd(`Visite Bilan à 1 an - V1`))
+
+# MoCA
+
+MoCA_V0 <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V0", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V0 <- SUBJID %>% inner_join(MoCA_V0) %>% select(SUBJID, MOCA_SCORE)
+MoCA_V0 %>%  summarise(mean=mean(as.numeric(MOCA_SCORE), na.rm=T), sd=sd(as.numeric(MOCA_SCORE), na.rm=T))
+
+
+MoCA_V1 <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "MoCA V1", skip=0, col_types = "text", trim_ws = TRUE)
+MoCA_V1 <- SUBJID %>% inner_join(MoCA_V1) %>%  select(SUBJID, MOCA_SCORE)
+MoCA_V1 %>%  summarise(mean=mean(as.numeric(MOCA_SCORE), na.rm=T), sd=sd(as.numeric(MOCA_SCORE), na.rm=T))
+
+
+# PDQ39
+PDQ39 <- fread("PDQ39.txt")
+PDQ39 <- PDQ39 %>% arrange(SUBJID, VISIT, item) %>%
+  spread(key=item, value=value) %>% arrange(SUBJID)
+PDQ39 <- PDQ39 %>% filter(PDQ39_SCORE!=0)
+PDQ39 <- PDQ39 %>% select(SUBJID, VISIT, PDQ39_SCORE)
+PDQ39 %>% inner_join(SUBJID) %>% group_by(VISIT) %>% 
+  summarise(mean=mean(as.numeric(PDQ39_SCORE), na.rm=T), sd=sd(as.numeric(PDQ39_SCORE), na.rm=T))
+
+# ---------------
+# Absolute degree of asymetry or axial score overall 415 pats -------------------------------------
+
+# SITES_df from above !
+
+Asymmetry_Pre_vs_Post <- fread("Asymmetry_Pre_vs_Post.txt")
+
+Asymmetry_Pre_vs_Post %>% inner_join(SUBJID) %>%
+  gather(Eval, Asym, Pre_OP:OFF_OFF, factor_key=TRUE) %>%
+  group_by( Eval) %>% summarise(mean=mean(Asym), sd=sd(Asym))
+
+Asymmetry_Pre_vs_Post <- Asymmetry_Pre_vs_Post %>%
+  mutate(ON_DBS_OFF_Med=ON_DBS_OFF_Med-Pre_OP) %>%
+  mutate(OFF_DBS_ON_Med =OFF_DBS_ON_Med -Pre_OP) %>%
+  mutate(ON_ON =ON_ON -Pre_OP)  %>%
+  mutate(OFF_OFF =OFF_OFF -Pre_OP)  
+
+
+Asymmetry_Pre_vs_Post %>% inner_join(SUBJID) %>%
+  gather(Eval, Asym, Pre_OP:OFF_OFF, factor_key=TRUE) %>%
+  group_by( Eval) %>% summarise(mean=mean(Asym), sd=sd(Asym))
+
+
+# Axial score 
+
+
+UPDRSIII_COMPLET_V0_V1 <- read_xlsx(path="Asymmetry_DeepBrainStimulation.xlsx",sheet = "UPDRSIII_COMPLET_V0_V1", skip=0, col_types = "text", trim_ws = TRUE)
+df_names <- names(UPDRSIII_COMPLET_V0_V1)
+
+
+OFF_before <- data.frame(df_names) %>%
+  filter(grepl("^OFF_", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%
+  arrange(df_names) %>%
+  filter(!grepl("ON", df_names)) %>%   filter(!grepl("1$", df_names))
+
+toString(as.list(OFF_before))
+
+match <- c("OFF_3.9_", "OFF_3.10_", "OFF_3.11_", "OFF_3.12_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFF_before <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFF_before <- OFF_before[-1,]
+
+
+OFF_before <- OFF_before %>% mutate(OFF_3.9_  =as.numeric(OFF_3.9_  ),
+                                    OFF_3.10_  =as.numeric(OFF_3.10_  ),
+                                    OFF_3.11_  =as.numeric(OFF_3.11_  ),
+                                    OFF_3.12_=as.numeric(OFF_3.12_)
+) %>% drop_na()
+
+
+
+ONON_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^ON", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("OFF", df_names)) 
+
+
+toString(as.list(ONON_After))
+
+match <- c("ON_3.10_6", "ON_3.11_6", "ON_3.12_6", "ON_3.9_6")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONON_After <- ONON_After[-1,]
+
+ONON_After <- ONON_After %>% mutate(ON_3.9_6 =as.numeric(ON_3.9_6 ),
+                                    ON_3.10_6 =as.numeric(ON_3.10_6 ),
+                                    ON_3.11_6 =as.numeric(ON_3.11_6 ),
+                                    ON_3.12_6=as.numeric(ON_3.12_6)
+) %>% drop_na()
+
+
+
+
+
+OFFOFF_After <- data.frame(df_names) %>%
+  filter(row_number()>272) %>%
+  filter(grepl("^OFF", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)) %>%  arrange(df_names)  %>%
+  filter(!grepl("ON", df_names)) 
+
+
+toString(as.list(OFFOFF_After))
+
+match <- c("OFF_3.10_1", "OFF_3.11_1", "OFF_3.12_1", "OFF_3.9_1")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFOFF_After <- OFFOFF_After[-1,]
+
+
+OFFOFF_After <- OFFOFF_After %>% mutate(OFF_3.9_1  =as.numeric(OFF_3.9_1  ),
+                                        OFF_3.10_1  =as.numeric(OFF_3.10_1  ),
+                                        OFF_3.11_1  =as.numeric(OFF_3.11_1  ),
+                                        OFF_3.12_1=as.numeric(OFF_3.12_1)
+) %>% drop_na()
+
+
+
+
+ONOFF_After <- data.frame(df_names) %>%
+  filter(grepl("^ONOFF", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(ONOFF_After))
+
+match <- c("ONOFF_3.10_", "ONOFF_3.11_", "ONOFF_3.12_", "ONOFF_3.9_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+ONOFF_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+ONOFF_After <- ONOFF_After[-1,]
+
+
+ONOFF_After <- ONOFF_After %>% mutate(ONOFF_3.10_  =as.numeric(ONOFF_3.10_  ),
+                                      ONOFF_3.11_  =as.numeric(ONOFF_3.11_  ),
+                                      ONOFF_3.12_  =as.numeric(ONOFF_3.12_  ),
+                                      ONOFF_3.9_=as.numeric(ONOFF_3.9_)
+) %>% drop_na()
+
+
+
+
+OFFON_After <- data.frame(df_names) %>%
+  filter(grepl("^OFFON", df_names)) %>%
+  filter(grepl("3.9", df_names)|
+           grepl("3.10", df_names)|
+           grepl("3.11", df_names)|
+           grepl("3.12", df_names)
+  ) %>%
+  arrange(df_names) 
+
+toString(as.list(OFFON_After))
+
+match <- c("OFFON_3.10_", "OFFON_3.11_", "OFFON_3.12_", "OFFON_3.9_")
+
+match <- append("SUBJID", match)
+
+which_names <- which(names(UPDRSIII_COMPLET_V0_V1) %in%  match)
+
+OFFON_After <- UPDRSIII_COMPLET_V0_V1[which_names]
+OFFON_After <- OFFON_After[-1,]
+
+
+OFFON_After <- OFFON_After %>% mutate(OFFON_3.10_  =as.numeric(OFFON_3.10_  ),
+                                      OFFON_3.11_  =as.numeric(OFFON_3.11_  ),
+                                      OFFON_3.12_  =as.numeric(OFFON_3.12_  ),
+                                      OFFON_3.9_=as.numeric(OFFON_3.9_)
+) %>% drop_na()
+
+
+
+
+OFF_before$AxialScoreOFFbefore <- OFF_before$OFF_3.9_ + OFF_before$OFF_3.10_ + OFF_before$OFF_3.11_ + OFF_before$OFF_3.12_
+ONON_After$AxialScoreON <- ONON_After$ON_3.9_6 + ONON_After$ON_3.10_6 + ONON_After$ON_3.11_6 + ONON_After$ON_3.12_6
+OFFOFF_After$AxialScoreOFF <- OFFOFF_After$OFF_3.9_1 + OFFOFF_After$OFF_3.10_1 + OFFOFF_After$OFF_3.11_1 + OFFOFF_After$OFF_3.12_1 
+ONOFF_After$AxialScoreONOFF <- ONOFF_After$ONOFF_3.9_  + ONOFF_After$ONOFF_3.10_  + ONOFF_After$ONOFF_3.11_  + ONOFF_After$ONOFF_3.12_ 
+OFFON_After$AxialScoreOFFON <- OFFON_After$OFFON_3.9_  + OFFON_After$OFFON_3.10_  + OFFON_After$OFFON_3.11_  + OFFON_After$OFFON_3.12_ 
+
+Axial_scores <- OFF_before %>% select(SUBJID, AxialScoreOFFbefore) %>%
+  inner_join(OFFOFF_After %>% select(SUBJID, AxialScoreOFF)) %>%
+  inner_join(ONON_After %>% select(SUBJID, AxialScoreON)) %>%
+  inner_join(ONOFF_After %>% select(SUBJID, AxialScoreONOFF)) %>%
+  inner_join(OFFON_After %>% select(SUBJID, AxialScoreOFFON)) 
+
+Axial_scores <- Axial_scores %>% 
+  rename("Pre_OP"="AxialScoreOFFbefore") %>%
+  rename("OFF_OFF"="AxialScoreOFF") %>%
+  rename("ON_ON"="AxialScoreON") %>%
+  rename("ON_DBS_OFF_Med"="AxialScoreONOFF") %>%
+  rename("OFF_DBS_ON_Med"="AxialScoreOFFON")
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(Pre_OP ),sd=sd(Pre_OP ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(OFF_OFF  ),sd=sd(OFF_OFF  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(ON_DBS_OFF_Med  ),sd=sd(ON_DBS_OFF_Med  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(OFF_DBS_ON_Med  ),sd=sd(OFF_DBS_ON_Med  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(ON_ON   ),sd=sd(ON_ON   ))
+
+
+Axial_scores <- Axial_scores %>%
+  mutate(OFF_OFF=OFF_OFF-Pre_OP ) %>%
+  mutate(ON_DBS_OFF_Med=ON_DBS_OFF_Med-Pre_OP ) %>%
+  mutate(OFF_DBS_ON_Med=OFF_DBS_ON_Med-Pre_OP ) %>%
+  mutate(ON_ON=ON_ON-Pre_OP ) 
+
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(OFF_OFF  ),sd=sd(OFF_OFF  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(ON_DBS_OFF_Med  ),sd=sd(ON_DBS_OFF_Med  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(OFF_DBS_ON_Med  ),sd=sd(OFF_DBS_ON_Med  ))
+
+
+Axial_scores %>% inner_join(SUBJID) %>%
+  summarise(mean=mean(ON_ON   ),sd=sd(ON_ON   ))
+
+
+
+# ---------------------
+
